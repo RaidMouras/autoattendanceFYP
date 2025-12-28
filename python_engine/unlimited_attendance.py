@@ -2,7 +2,6 @@ import cv2
 import face_recognition
 import mysql.connector
 import pickle
-import sys
 import time
 from datetime import datetime
 from db_connection import create_db_connection
@@ -44,7 +43,6 @@ def mark_log(student_id, name, status_label):
             conn.close()
 
 def load_known_faces():
-    """Fetches all student faces from the database."""
     print("🔄 Loading known faces from database...")
     known_encodings = []
     known_ids = []
@@ -54,7 +52,13 @@ def load_known_faces():
     if conn:
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT Student_ID, First_Name, Last_Name, Face_Encoding FROM Students")
+            # JOIN query to get Name from Students and Encoding from Face_Encodings
+            sql = """
+            SELECT s.Student_ID, s.First_Name, s.Last_Name, f.face_encoding 
+            FROM Students s
+            JOIN Face_Encodings f ON s.Student_ID = f.student_id
+            """
+            cursor.execute(sql)
             rows = cursor.fetchall()
             
             for row in rows:
@@ -75,7 +79,7 @@ def load_known_faces():
             print(f"❌ Error loading faces: {e}")
             return [], [], []
     
-    print(f"✅ Loaded {len(known_encodings)} student(s).")
+    print(f"✅ Loaded {len(known_encodings)} face vector(s) for {len(set(known_ids))} unique student(s).")
     return known_encodings, known_ids, known_names
 
 def run_test_system():
@@ -101,7 +105,9 @@ def run_test_system():
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        face_locations = face_recognition.face_locations(rgb_frame)
+        # --- ENABLE GPU HERE ---
+        # Changed from default (CPU) to model="cnn" (GPU)
+        face_locations = face_recognition.face_locations(rgb_frame, model="cnn")
         face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
         for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
