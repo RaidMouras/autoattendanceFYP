@@ -1,0 +1,131 @@
+/* --- PAGE LAYOUT --- */
+.session-main {
+  padding: 2em;
+  color: #fff;
+  min-height: 80vh;
+}
+
+.session-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.module-title {
+  font-size: 3em;
+  margin: 0;
+  font-weight: bold;
+}
+
+.module-subtitle {
+  color: #ccc;
+  font-size: 1.2em;
+  margin-top: 5px;
+}
+
+/* --- CONTROL PANEL (The 3 Buttons) --- */
+.control-panel {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 40px;
+  flex-wrap: wrap; /* Wraps on mobile screens */
+}
+
+.cmd-btn {
+  padding: 15px 25px;
+  font-size: 1.1em;
+  font-weight: bold;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cmd-btn:hover {
+  transform: translateY(-3px);
+  opacity: 0.9;
+}
+
+.cmd-btn:active {
+  transform: translateY(0);
+}
+
+/* Button Colors */
+.cmd-btn.blue { background-color: #2196F3; }   /* Enroll */
+.cmd-btn.orange { background-color: #FF9800; } /* Schedule */
+.cmd-btn.green { background-color: #4CAF50; }  /* Start */
+
+/* --- STUDENT LIST SECTION --- */
+.student-list-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.list-header {
+  border-bottom: 2px solid rgba(255,255,255,0.2);
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+  font-size: 1.5em;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 30px;
+  background: rgba(0,0,0,0.1);
+  border-radius: 10px;
+  border: 1px dashed rgba(255,255,255,0.3);
+}
+
+.add-student-link {
+  text-decoration: underline;
+  background: none;
+  border: none;
+  color: #88ff88;
+  cursor: pointer;
+  font-size: 1em;
+  margin-top: 10px;
+}
+
+/* TABLE STYLES */
+.student-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: rgba(255, 255, 255, 0.1); /* Glass effect */
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.student-table th, .student-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.student-table th {
+  background-color: rgba(0, 0, 0, 0.3);
+  color: #88ff88; /* Matrix green tint for headers */
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 0.9em;
+  letter-spacing: 0.05em;
+}
+
+.student-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.status-badge {
+  background-color: #1B3632;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 0.8em;
+  border: 1px solid #79cf8a;
+  color: #fff;
+}
