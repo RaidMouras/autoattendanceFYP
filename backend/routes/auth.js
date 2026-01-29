@@ -2,14 +2,14 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res) => {    //receiving the request from http://......./login
   console.log("Login Request Received!");
   
-  const { username, password } = req.body;
+  const { email, password } = req.body;        //unpacking the request. request body contains email and password
 
   try {
     // 1. Search DB
-    const [rows] = await db.query('SELECT * FROM users WHERE Username = ?', [username]);
+    const [rows] = await db.query('SELECT * FROM users WHERE Email = ?', [email]);  //asking db if we have a user with that email
     
     if (rows.length === 0) {
       console.log("User not found.");
@@ -31,9 +31,10 @@ router.post('/login', async (req, res) => {
       // We send the data back in the format the Frontend expects (lowercase)
       res.json({
         success: true,
-        user_id: dbId,
-        username: dbUser,
-        role: dbRole.toLowerCase() // Convert 'Admin' -> 'admin' for frontend logic
+        user_id: user.User_ID,
+        name: user.Name,      // Send Name for display ("Welcome John")
+        email: user.Email,    // Send Email for reference
+        role: user.Role.toLowerCase()// Convert 'Admin' -> 'admin' for frontend logic
       });
     } else {
       console.log(`Password Mismatch for ${dbUser}`);
