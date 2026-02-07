@@ -6,6 +6,8 @@ const authRoutes = require('./routes/auth');
 const moduleRoutes = require('./routes/modules');
 const analyticsRoutes = require('./routes/analytics');
 const adminRoutes = require('./routes/admin');
+const enrollRoutes = require('./routes/studentEnroll');
+const studentListRoutes = require('./routes/studentList');
 
 const app = express();
 const PORT = 5000;
@@ -19,6 +21,8 @@ app.use('/api/auth', authRoutes);       // Login endpoints
 app.use('/api/modules', moduleRoutes);  // Dashboard endpoints
 app.use('/api/analytics', analyticsRoutes); // Stats endpoints
 app.use('/api/admin', adminRoutes);     // Admin endpoints
+app.use('/api/enroll', enrollRoutes); // Student Enrollment endpoints
+app.use('/api/class-list', studentListRoutes); // Student List endpoints
 
 // Test Route
 app.get('/', (req, res) => {

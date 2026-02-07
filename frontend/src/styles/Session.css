@@ -1,131 +1,326 @@
-/* --- PAGE LAYOUT --- */
+/* ===== Session - Professional UI (matches Dashboard) ===== */
+
 .session-main {
-  padding: 2em;
-  color: #fff;
+  padding: 2rem 1.5rem 3rem;
   min-height: 80vh;
+  color: #2d3e1f;
 }
 
+/* ----- Session Header (module title area) ----- */
 .session-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 2rem;
 }
 
 .module-title {
-  font-size: 3em;
+  font-size: 1.75rem;
   margin: 0;
-  font-weight: bold;
+  font-weight: 600;
+  color: #2d3e1f;
+  letter-spacing: -0.02em;
 }
 
 .module-subtitle {
-  color: #ccc;
-  font-size: 1.2em;
-  margin-top: 5px;
+  color: #4a5d23;
+  font-size: 1rem;
+  margin-top: 0.25rem;
 }
 
-/* --- CONTROL PANEL (The 3 Buttons) --- */
+/* ----- Control Panel ----- */
 .control-panel {
   display: flex;
   justify-content: center;
-  gap: 20px;
-  margin-bottom: 40px;
-  flex-wrap: wrap; /* Wraps on mobile screens */
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
 }
 
 .cmd-btn {
-  padding: 15px 25px;
-  font-size: 1.1em;
-  font-weight: bold;
-  color: white;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: transform 0.2s, opacity 0.2s;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 6px rgba(85, 107, 47, 0.25);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.5rem;
 }
 
 .cmd-btn:hover {
-  transform: translateY(-3px);
-  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(85, 107, 47, 0.3);
 }
 
-.cmd-btn:active {
-  transform: translateY(0);
+.cmd-btn.blue {
+  background: linear-gradient(135deg, #556b2f 0%, #6b7c3d 100%);
 }
 
-/* Button Colors */
-.cmd-btn.blue { background-color: #2196F3; }   /* Enroll */
-.cmd-btn.orange { background-color: #FF9800; } /* Schedule */
-.cmd-btn.green { background-color: #4CAF50; }  /* Start */
+.cmd-btn.blue:hover {
+  background: linear-gradient(135deg, #4a5d23 0%, #556b2f 100%);
+}
 
-/* --- STUDENT LIST SECTION --- */
+.cmd-btn.orange {
+  background: linear-gradient(135deg, #8b6914 0%, #a67c00 100%);
+}
+
+.cmd-btn.orange:hover {
+  background: linear-gradient(135deg, #6b5010 0%, #8b6914 100%);
+}
+
+.cmd-btn.green {
+  background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
+}
+
+.cmd-btn.green:hover {
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+}
+
+/* ----- Student List Container ----- */
 .student-list-container {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
+  box-shadow: 0 2px 12px rgba(85, 107, 47, 0.12);
+  border: 1px solid #a5d6a7;
 }
 
 .list-header {
-  border-bottom: 2px solid rgba(255,255,255,0.2);
-  padding-bottom: 10px;
-  margin-bottom: 15px;
-  font-size: 1.5em;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #2d3e1f;
+  padding-bottom: 1rem;
+  margin: 0 0 1rem 0;
+  border-bottom: 2px solid #6b7c3d;
 }
 
-/* Empty State */
+.session-loading {
+  text-align: center;
+  color: #4a5d23;
+  padding: 2rem;
+  margin: 0;
+}
+
+/* ----- Empty State ----- */
 .empty-state {
   text-align: center;
-  padding: 30px;
-  background: rgba(0,0,0,0.1);
-  border-radius: 10px;
-  border: 1px dashed rgba(255,255,255,0.3);
+  padding: 2rem;
+  background: #f1f8e9;
+  border-radius: 8px;
+  border: 1px dashed #a5d6a7;
+  color: #2d3e1f;
+}
+
+.empty-state p {
+  margin: 0 0 0.5rem 0;
+  color: #4a5d23;
 }
 
 .add-student-link {
-  text-decoration: underline;
+  text-decoration: none;
   background: none;
   border: none;
-  color: #88ff88;
+  color: #556b2f;
   cursor: pointer;
-  font-size: 1em;
-  margin-top: 10px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
 }
 
-/* TABLE STYLES */
+.add-student-link:hover {
+  text-decoration: underline;
+}
+
+/* ----- Student Table ----- */
 .student-table {
   width: 100%;
   border-collapse: collapse;
-  background-color: rgba(255, 255, 255, 0.1); /* Glass effect */
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  background: #fff;
 }
 
-.student-table th, .student-table td {
-  padding: 12px 15px;
+.student-table th,
+.student-table td {
+  padding: 0.75rem 1rem;
   text-align: left;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid #e2e8f0;
+  color: #334155;
 }
 
 .student-table th {
-  background-color: rgba(0, 0, 0, 0.3);
-  color: #88ff88; /* Matrix green tint for headers */
-  font-weight: bold;
+  background: #f1f8e9;
+  color: #2d3e1f;
+  font-weight: 600;
+  font-size: 0.8125rem;
   text-transform: uppercase;
-  font-size: 0.9em;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
 }
 
-.student-table tr:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+.student-table tbody tr:hover {
+  background: #f8faf8;
 }
 
 .status-badge {
-  background-color: #1B3632;
-  padding: 5px 10px;
-  border-radius: 15px;
-  font-size: 0.8em;
-  border: 1px solid #79cf8a;
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid #a5d6a7;
+}
+
+/* ----- Enrollment Modal ----- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #fff;
+  color: #334155;
+  padding: 1.5rem 2rem;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  border: 1px solid #e2e8f0;
+}
+
+.modal-title {
+  margin: 0 0 0.5rem 0;
+  color: #2d3e1f;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.modal-module {
+  margin: 0 0 1.25rem 0;
+  color: #4a5d23;
+  font-size: 0.9375rem;
+}
+
+.modal-field {
+  margin-bottom: 1rem;
+}
+
+.modal-field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  font-size: 0.875rem;
+  color: #334155;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.9375rem;
+  box-sizing: border-box;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: #6b7c3d;
+}
+
+.modal-input:disabled {
+  background: #f1f5f9;
+  cursor: not-allowed;
+}
+
+.modal-scanning {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: #e3f2fd;
+  color: #0d47a1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  border-left: 4px solid #2196f3;
+  line-height: 1.6;
+}
+
+.modal-scanning kbd {
+  display: inline-block;
+  padding: 0.15em 0.4em;
+  font-size: 0.9em;
+  background: #fff;
+  border: 1px solid #2196f3;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+}
+
+.modal-cancel-btn {
+  padding: 0.5rem 1.25rem;
+  background: #e2e8f0;
+  color: #475569;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.modal-cancel-btn:hover {
+  background: #cbd5e1;
+}
+
+.modal-submit-btn {
+  padding: 0.5rem 1.25rem;
+  background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
   color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  box-shadow: 0 2px 4px rgba(46, 125, 50, 0.3);
+}
+
+.modal-submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+}
+
+.modal-submit-scanning {
+  background: linear-gradient(135deg, #556b2f 0%, #6b7c3d 100%);
+  opacity: 0.9;
+}
+
+.delete-student-btn {
+  background: none;
+  border: 1px solid #d32f2f; /* Defines the red color */
+  color: #d32f2f;            /* Makes the text red */
+  border-radius: 20px;       /* Rounds the corners much more (pill shape) */
+  cursor: pointer;
+  padding: 5px 12px;         /* Adjust padding for text look */
+  font-size: 0.875rem;       /* Standard text size */
+  font-family: inherit;      /* Forces it to use the same font as the rest of the page */
+  font-weight: 600;          /* Slightly bold for emphasis */
+  transition: all 0.2s ease;
+}
+
+.delete-student-btn:hover {
+  background-color: #d32f2f; /* Solid red background on hover */
+  color: white;              /* White text on hover for contrast */
 }

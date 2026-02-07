@@ -93,9 +93,32 @@ def register_student_multi_angle(student_id, first_name, last_name):
     cv2.destroyAllWindows()
     print(f"✅ Finished. Total angles saved: {captured_count}")
 
+def enroll_student_in_module(student_id, module_code):
+    conn = create_db_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            sql = "INSERT INTO enrollment (Student_ID, Module_Code) VALUES (%s, %s)"
+            cursor.execute(sql, (student_id, module_code))
+            conn.commit()
+            print(f"✅ Successfully enrolled {student_id} in {module_code}")
+        except mysql.connector.Error as err:
+            print(f"⚠️ Enrollment Error: {err}")
+        finally:
+            cursor.close()
+            conn.close()
+
+# --- UPDATE THE BOTTOM SECTION ---
 if __name__ == "__main__":
     s_id = input("Enter Student ID: ")
     f_name = input("Enter First Name: ")
     l_name = input("Enter Last Name: ")
     
+    # 1. Register Identity & Face
     register_student_multi_angle(s_id, f_name, l_name)
+    
+    # 2. Ask for Module to link them immediately
+    link_mod = input("\nDo you want to enroll them in a module now? (y/n): ")
+    if link_mod.lower() == 'y':
+        mod_code = input("Enter Module Code (e.g. CS2323): ")
+        enroll_student_in_module(s_id, mod_code)
