@@ -324,3 +324,61 @@
   background-color: #d32f2f; /* Solid red background on hover */
   color: white;              /* White text on hover for contrast */
 }
+
+/* --- Duration Buttons --- */
+.duration-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.duration-btn {
+    padding: 15px;
+    border: 2px solid #556b2f;
+    background: white;
+    color: #556b2f;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.duration-btn:hover {
+    background: #556b2f;
+    color: white;
+}
+
+.duration-btn.manual {
+    border-color: #d35400;
+    color: #d35400;
+}
+
+.duration-btn.manual:hover {
+    background: #d35400;
+    color: white;
+}
+
+/* --- Countdown Overlay --- */
+.countdown-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.countdown-number {
+    font-size: 15rem;
+    font-weight: 800;
+    color: white;
+    animation: zoomIn 0.5s ease-out;
+}
+
+@keyframes zoomIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}

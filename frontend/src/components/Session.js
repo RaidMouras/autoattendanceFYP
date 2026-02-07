@@ -13,12 +13,13 @@ function Session() {
     const iconRef = useRef(null);
 
     // --- STATE MANAGEMENT ---
+    // 1. Data State
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [userName, setUserName] = useState('User');
     const [userId, setUserId] = useState(null);
 
-    // Profile popup state
+    // 2. Profile Popup State
     const [profileOpen, setProfileOpen] = useState(false);
     const [editNameOpen, setEditNameOpen] = useState(false);
     const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -29,12 +30,19 @@ function Session() {
     const [profileError, setProfileError] = useState('');
     const [errorField, setErrorField] = useState('');
 
-    // Enrollment Modal State
+    // 3. Enrollment Modal State
     const [showEnrollModal, setShowEnrollModal] = useState(false);
     const [newStudent, setNewStudent] = useState({ id: '', first: '', last: '' });
     const [isScanning, setIsScanning] = useState(false); // Tracks if Python camera is active
 
-    // --- 1. FETCH USER ON LOAD ---
+    // 4. Session Start / Countdown State
+    const [showSessionModal, setShowSessionModal] = useState(false);
+    const [sessionDuration, setSessionDuration] = useState(0); // 0 = Manual, otherwise minutes
+    const [countdown, setCountdown] = useState(null); // null = hidden, 3, 2, 1, 0
+
+    // --- EFFECTS ---
+
+    // Fetch User on Load
     useEffect(() => {
         const userString = localStorage.getItem('user');
         if (userString) {
@@ -44,10 +52,9 @@ function Session() {
         }
     }, []);
 
-    // --- 2. FETCH STUDENTS (Refactored to new Route) ---
+    // Fetch Students on Load (Using the new organized route)
     const fetchStudents = async () => {
         try {
-            // UPDATED: Now points to the dedicated 'studentList.js' route
             const response = await api.get(`/class-list/${moduleCode}`);
             setStudents(response.data);
         } catch (err) {
@@ -61,7 +68,7 @@ function Session() {
         fetchStudents();
     }, [moduleCode]);
 
-    // Click outside to close profile popup
+    // Click Outside to Close Profile
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (profileOpen && popupRef.current && !popupRef.current.contains(e.target) && iconRef.current && !iconRef.current.contains(e.target)) {
@@ -75,6 +82,21 @@ function Session() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [profileOpen]);
+
+    // Countdown Timer Effect
+    useEffect(() => {
+        if (countdown === null) return;
+
+        if (countdown > 0) {
+            const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+            return () => clearTimeout(timer);
+        } else if (countdown === 0) {
+            // Time to launch!
+            triggerPythonSession();
+            setCountdown(null);
+        }
+    }, [countdown]);
+
 
     // --- PROFILE HANDLERS ---
     const handleEditName = async (e) => {
@@ -120,31 +142,15 @@ function Session() {
         navigate('/');
     };
 
-    // --- BUTTON HANDLERS ---
+    // --- CLASS MANAGEMENT HANDLERS ---
 
-    const handleEnroll = () => {
-        setShowEnrollModal(true);
-    };
-
-    const handleSchedule = () => {
-        alert("This will open the Scheduler (Coming Soon)");
-    };
-
-    const handleStartSession = async () => {
-        alert(`Signal sent! 'attendance_taker.py' will wake up for ${moduleCode} shortly.`);
-    };
-
-    // --- 3. DELETE STUDENT HANDLER (Refactored) ---
     const handleRemoveStudent = async (studentId) => {
-        if (!window.confirm(`Are you sure you want to remove Student ${studentId} from this class?`)) {
+        if (!window.confirm(`Are you sure you want to remove Student ${studentId}? This deletes ALL their data (Enrollment, Attendance, Face Scans).`)) {
             return;
         }
-
         try {
-            // UPDATED: Now points to the dedicated 'studentList.js' route
             await api.delete(`/class-list/${moduleCode}/${studentId}`);
-            
-            // Remove from local state immediately for fast UI response
+            // Remove from local state immediately
             setStudents(students.filter(s => s.Student_ID !== studentId));
         } catch (err) {
             alert("Failed to remove student. See console.");
@@ -152,13 +158,16 @@ function Session() {
         }
     };
 
-    // --- 4. SUBMIT ENROLLMENT (Triggers Python) ---
+    // --- ENROLLMENT HANDLERS ---
+    const handleEnroll = () => {
+        setShowEnrollModal(true);
+    };
+
     const submitEnrollment = async (e) => {
         e.preventDefault();
         setIsScanning(true);
 
         try {
-            // Note: Enrollment triggers the Python engine, so it stays in 'enroll' route
             await api.post('/enroll/student', {
                 id: newStudent.id,
                 firstName: newStudent.first,
@@ -169,7 +178,7 @@ function Session() {
             setIsScanning(false);
             setShowEnrollModal(false);
             setNewStudent({ id: '', first: '', last: '' });
-            fetchStudents(); // Refresh the list
+            fetchStudents(); // Refresh list
 
         } catch (err) {
             console.error(err);
@@ -178,6 +187,35 @@ function Session() {
         }
     };
 
+    // --- SESSION START HANDLERS ---
+    const openSessionModal = () => {
+        setShowSessionModal(true);
+    };
+
+    const startSessionSequence = () => {
+        setShowSessionModal(false);
+        setCountdown(3); // Start 3, 2, 1...
+    };
+
+    const triggerPythonSession = async () => {
+        try {
+            await api.post('/session/start', {
+                moduleCode: moduleCode,
+                duration: sessionDuration
+            });
+            // Don't need an alert, the Python window appearing is the feedback
+        } catch (err) {
+            alert("Failed to launch attendance system. Is the backend running?");
+            console.error(err);
+        }
+    };
+
+    const handleSchedule = () => {
+        alert("Schedule Feature Coming Soon!");
+    };
+
+
+    // --- RENDER ---
     return (
         <>
             <header className="home-header">
@@ -241,6 +279,7 @@ function Session() {
             </header>
 
             <main className="main-content session-main">
+
                 {/* HEADER */}
                 <div className="session-header">
                     <h1 className="module-title">{moduleCode}</h1>
@@ -255,7 +294,7 @@ function Session() {
                     <button className="cmd-btn orange" onClick={handleSchedule}>
                         <span>📅</span> Schedule Session
                     </button>
-                    <button className="cmd-btn green" onClick={handleStartSession}>
+                    <button className="cmd-btn green" onClick={openSessionModal}>
                         <span>▶</span> Start Session Now
                     </button>
                 </div>
@@ -283,7 +322,7 @@ function Session() {
                                     <th>First Name</th>
                                     <th>Last Name</th>
                                     <th>Status</th>
-                                    <th>MANAGE</th> 
+                                    <th>Action</th> 
                                 </tr>
                             </thead>
                             <tbody>
@@ -309,7 +348,7 @@ function Session() {
                     )}
                 </div>
 
-                {/* --- ENROLLMENT MODAL --- */}
+                {/* --- 1. ENROLLMENT MODAL --- */}
                 {showEnrollModal && (
                     <div className="modal-overlay">
                         <div className="modal-content">
@@ -371,6 +410,45 @@ function Session() {
                         </div>
                     </div>
                 )}
+
+                {/* --- 2. SESSION DURATION MODAL (NEW) --- */}
+                {showSessionModal && (
+                    <div className="modal-overlay">
+                        <div className="modal-content" style={{textAlign: 'center'}}>
+                            <h2 className="modal-title">Start Class Session</h2>
+                            <p>Select how long the camera should run:</p>
+                            
+                            <div className="duration-options">
+                                <button className="duration-btn" onClick={() => { setSessionDuration(60); setTimeout(startSessionSequence, 0); }}>
+                                    1 Hour
+                                </button>
+                                <button className="duration-btn" onClick={() => { setSessionDuration(120); setTimeout(startSessionSequence, 0); }}>
+                                    2 Hours
+                                </button>
+                                <button className="duration-btn" onClick={() => { setSessionDuration(180); setTimeout(startSessionSequence, 0); }}>
+                                    3 Hours
+                                </button>
+                                <button className="duration-btn manual" onClick={() => { setSessionDuration(0); setTimeout(startSessionSequence, 0); }}>
+                                    ♾️ Manual Stop
+                                </button>
+                            </div>
+                            
+                            <button onClick={() => setShowSessionModal(false)} className="modal-cancel-btn" style={{marginTop: '20px'}}>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- 3. COUNTDOWN OVERLAY (NEW) --- */}
+                {countdown !== null && (
+                    <div className="countdown-overlay">
+                        <div className="countdown-number">
+                            {countdown > 0 ? countdown : "GO!"}
+                        </div>
+                    </div>
+                )}
+
             </main>
         </>
     );
