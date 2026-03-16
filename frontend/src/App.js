@@ -2,11 +2,12 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // IMPORTS: Adjust these paths if your files are in different folders
-import Login from './components/Login'; 
+import Login from './components/Login';
 import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
 import AdminDashboard from './components/AdminDashboard';
 import Session from './components/Session';
+import Analytics from './components/Analytics';
 
 function App() {
   return (
@@ -24,7 +25,9 @@ function App() {
         <Route path="/admin" element={<AdminDashboard />} />
 
         <Route path="/session/:moduleCode" element={<Session />} />
-        
+
+        <Route path="/analytics/:moduleCode" element={<Analytics />} />
+
       </Routes>
     </Router>
   );
