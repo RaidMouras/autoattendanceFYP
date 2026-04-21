@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const bcrypt = require('bcrypt');
 
 // 1. GET ALL LECTURERS
 // GET /api/admin/lecturers
@@ -34,9 +35,10 @@ router.post('/add-lecturer', async (req, res) => {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
 
-    // Insert new Lecturer
+    // Insert new Lecturer with hashed password
+    const hashedPassword = await bcrypt.hash(password, 10);
     const sql = 'INSERT INTO users (Name, Email, Password_Hash, Role) VALUES (?, ?, ?, ?)';
-    await db.query(sql, [name, email, password, 'lecturer']);
+    await db.query(sql, [name, email, hashedPassword, 'lecturer']);
 
     console.log(`Admin added new user: ${name} (${email})`);
     res.json({ success: true, message: `Lecturer ${name} added successfully.` });

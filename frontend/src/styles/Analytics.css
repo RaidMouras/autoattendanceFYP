@@ -1,3 +1,18 @@
+.export-csv-btn {
+  padding: 8px 16px;
+  background-color: #2e7d32;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.export-csv-btn:hover {
+  background-color: #1b5e20;
+}
+
 .analytics-container {
   max-width: 800px;
   margin: 0 auto;
@@ -100,5 +115,64 @@
   border-radius: 4px;
   cursor: pointer;
   box-sizing: border-box;
+}
+
+/* Date Filter Bar */
+.date-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.filter-mode-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.filter-mode-btn {
+  padding: 6px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  color: #444;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.filter-mode-btn.active {
+  background: #007BFF;
+  color: white;
+  border-color: #007BFF;
+}
+
+.date-filter-bar label {
+  font-weight: bold;
+  color: #444;
+  white-space: nowrap;
+}
+
+.date-picker-input {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+.date-picker-input:focus {
+  border-color: #007BFF;
+}
+
+.date-filter-label {
+  color: #007BFF;
+  font-size: 13px;
+  font-style: italic;
 }
 

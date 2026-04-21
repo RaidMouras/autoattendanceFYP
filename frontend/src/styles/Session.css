@@ -79,6 +79,14 @@
   background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
 }
 
+.cmd-btn.red {
+  background: linear-gradient(135deg, #c62828 0%, #d32f2f 100%);
+}
+
+.cmd-btn.red:hover {
+  background: linear-gradient(135deg, #b71c1c 0%, #c62828 100%);
+}
+
 /* ----- Student List Container ----- */
 .student-list-container {
   max-width: 900px;

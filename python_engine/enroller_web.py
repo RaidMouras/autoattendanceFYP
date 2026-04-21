@@ -26,13 +26,14 @@ except:
 
 # Parse args from Node.js
 if len(sys.argv) < 5:
-    print("[ERROR] Missing arguments. Usage: python enroller_web.py <ID> <First> <Last> <Module>", flush=True)
+    print("[ERROR] Missing arguments. Usage: python enroller_web.py <ID> <First> <Last> <Module> [cameraIndex]", flush=True)
     sys.exit(1)
 
 student_id = sys.argv[1]
 first_name = sys.argv[2]
 last_name = sys.argv[3]
 module_code = sys.argv[4]
+camera_index = int(sys.argv[5]) if len(sys.argv) > 5 else 0
 
 def bring_window_to_front():
     """On Windows, bring the OpenCV window to foreground so keypresses work."""
@@ -106,7 +107,7 @@ def main():
     if not ensure_student_exists(student_id, first_name, last_name):
         sys.exit(1)
 
-    video_capture = cv2.VideoCapture(0)
+    video_capture = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
     
     if not video_capture.isOpened():
         print("[ERROR] Could not open webcam.", flush=True)
@@ -142,9 +143,9 @@ def main():
         if key == ord('s'):
             print("[INFO] Processing image... (Resizing for Speed)", flush=True)
             
-            # 1. SCALE DOWN (0.25x size)
-            # This makes the image 16x smaller (area), drastically speeding up CNN
-            small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+            # 1. SCALE DOWN (0.5x size) — matches attendance system scale
+            # 0.25x was too aggressive; angled faces became too small to detect
+            small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
 
             # 2. CONVERT & CLEAN
             # We process the SMALL frame, which is fast
@@ -164,10 +165,10 @@ def main():
                     # 4. SCALE UP COORDINATES
                     # Since we shrunk by 0.25, we multiply coordinates by 4 to get back to HD
                     top, right, bottom, left = small_boxes[0]
-                    top *= 4
-                    right *= 4
-                    bottom *= 4
-                    left *= 4
+                    top *= 2
+                    right *= 2
+                    bottom *= 2
+                    left *= 2
                     
                     # Store as a list of boxes (just one face)
                     hd_boxes = [(top, right, bottom, left)]

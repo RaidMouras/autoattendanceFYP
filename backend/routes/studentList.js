@@ -21,49 +21,42 @@ router.get('/:moduleCode', async (req, res) => {
   }
 });
 
-// 2. DELETE STUDENT (FULL WIPE)
-// Removes Student from: Enrollment, Attendance Logs, Face Encodings, and Students table.
+// 2. REMOVE STUDENT FROM A MODULE
+// Scoped to a single module: drops the enrollment and this module's attendance logs only.
+// Face encodings and the student record stay (they may be enrolled in other modules).
 router.delete('/:moduleCode/:studentId', async (req, res) => {
     const { moduleCode, studentId } = req.params;
-    
-    // We need a specific connection to run a Transaction (multiple steps as one unit)
+
     const connection = await db.getConnection();
 
     try {
         await connection.beginTransaction();
 
-        console.log(`[DELETE] Starting full wipe for Student ${studentId}...`);
+        const [enrollResult] = await connection.query(
+            'DELETE FROM enrollment WHERE Student_ID = ? AND Module_Code = ?',
+            [studentId, moduleCode]
+        );
 
-        // STEP A: Delete from Enrollment (The link to classes)
-        await connection.query('DELETE FROM enrollment WHERE Student_ID = ?', [studentId]);
-
-        // STEP B: Delete Attendance History (Clean up old logs)
-        await connection.query('DELETE FROM attendance_logs WHERE Student_ID = ?', [studentId]);
-
-        // STEP C: Delete Face Encodings (Biometric Data)
-        await connection.query('DELETE FROM Face_Encodings WHERE student_id = ?', [studentId]);
-
-        // STEP D: Delete the Main Student Record
-        const [result] = await connection.query('DELETE FROM students WHERE Student_ID = ?', [studentId]);
-
-        if (result.affectedRows === 0) {
-            // If we didn't find the student in the main table, maybe they were already gone?
-            // We still commit because we cleaned up the other tables.
-            console.log(`[DELETE] Student ${studentId} was already removed from main table.`);
-        }
+        await connection.query(
+            `DELETE FROM attendance_logs
+             WHERE Student_ID = ?
+               AND Session_ID IN (SELECT Session_ID FROM sessions WHERE Module_Code = ?)`,
+            [studentId, moduleCode]
+        );
 
         await connection.commit();
-        console.log(`[SUCCESS] Student ${studentId} and all associated data deleted.`);
-        
-        res.json({ success: true, message: 'Student and face data permanently deleted' });
+
+        if (enrollResult.affectedRows === 0) {
+            return res.json({ success: true, message: 'Student was not enrolled in this module' });
+        }
+        res.json({ success: true, message: 'Student removed from module' });
 
     } catch (err) {
-        // If any step fails, undo everything (Rollback)
         await connection.rollback();
-        console.error("Error removing student:", err);
-        res.status(500).json({ message: 'Server error removing student' });
+        console.error("Error removing student from module:", err);
+        res.status(500).json({ message: 'Server error removing student from module' });
     } finally {
-        connection.release(); // Always release the connection back to the pool
+        connection.release();
     }
 });
 

@@ -1,7 +1,9 @@
-//This file starts the app and tells the app where to send requests
+require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const { verifyToken, requireAdmin } = require('./middleware/authMiddleware');
+
 const authRoutes = require('./routes/auth');
 const moduleRoutes = require('./routes/modules');
 const analyticsRoutes = require('./routes/analytics');
@@ -14,20 +16,24 @@ const app = express();
 const PORT = 5000;
 
 // Middleware
-app.use(cors()); // Allow React to talk to this express server. because they are on different ports communication is naturally blocked
-app.use(express.json()); // Parse JSON bodies (translate json into javascript objects)
+app.use(cors());
+app.use(express.json());
 
-// Route Handlers
-app.use('/api/auth', authRoutes);       // Login endpoints
-app.use('/api/modules', moduleRoutes);  // Dashboard endpoints
-app.use('/api/analytics', analyticsRoutes); // Stats endpoints
-app.use('/api/admin', adminRoutes);     // Admin endpoints
-app.use('/api/enroll', enrollRoutes); // Student Enrollment endpoints
-app.use('/api/class-list', studentListRoutes); // Student List endpoints
-app.use('/api/session', sessionControlRoutes); // Session Control endpoints (start/stop sessions)
+// Public routes (no token required)
+app.use('/api/auth', authRoutes);
+
+// Protected routes (valid JWT required)
+app.use('/api/modules', verifyToken, moduleRoutes);
+app.use('/api/analytics', verifyToken, analyticsRoutes);
+app.use('/api/enroll', verifyToken, enrollRoutes);
+app.use('/api/class-list', verifyToken, studentListRoutes);
+app.use('/api/session', verifyToken, sessionControlRoutes);
+
+// Admin-only routes (valid JWT + admin role required)
+app.use('/api/admin', verifyToken, requireAdmin, adminRoutes);
 
 // Test Route
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.send('Attendance API is Running...');
 });
 

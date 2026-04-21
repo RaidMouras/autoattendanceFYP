@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // --- LOGIN ROUTE ---
 router.post('/login', async (req, res) => {
@@ -12,26 +15,32 @@ router.post('/login', async (req, res) => {
         const [rows] = await db.query('SELECT * FROM users WHERE Email = ?', [email]);
 
         if (rows.length === 0) {
-            return res.status(401).json({ message: 'User not found' });
+            return res.status(401).json({ message: 'Invalid credentials' });
         }
 
         const user = rows[0];
-        const dbPassword = user.Password_Hash;
+        const match = await bcrypt.compare(password, user.Password_Hash);
 
-        // Plain Text Comparison
-        if (password === dbPassword) {
-            console.log(`Login Success: ${user.Name}`);
-            res.json({
-                success: true,
-                user_id: user.User_ID,
-                name: user.Name,
-                email: user.Email,
-                role: user.Role.toLowerCase()
-            });
-        } else {
-            console.log(`Password Mismatch for ${user.Email}`);
-            res.status(401).json({ message: 'Invalid credentials' });
+        if (!match) {
+            console.log(`Password mismatch for ${user.Email}`);
+            return res.status(401).json({ message: 'Invalid credentials' });
         }
+
+        const token = jwt.sign(
+            { user_id: user.User_ID, role: user.Role.toLowerCase() },
+            process.env.JWT_SECRET,
+            { expiresIn: '8h' }
+        );
+
+        console.log(`Login Success: ${user.Name}`);
+        res.json({
+            success: true,
+            token,
+            user_id: user.User_ID,
+            name: user.Name,
+            email: user.Email,
+            role: user.Role.toLowerCase()
+        });
 
     } catch (err) {
         console.error("Server Error:", err);
@@ -40,11 +49,12 @@ router.post('/login', async (req, res) => {
 });
 
 // --- UPDATE NAME ---
-router.patch('/profile/name', async (req, res) => {
-    const { userId, name } = req.body;
+router.patch('/profile/name', verifyToken, async (req, res) => {
+    const userId = req.user.user_id;
+    const { name } = req.body;
 
-    if (!userId || !name || typeof name !== 'string' || name.trim().length === 0) {
-        return res.status(400).json({ message: 'Valid userId and name required' });
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ message: 'Valid name required' });
     }
 
     try {
@@ -57,10 +67,11 @@ router.patch('/profile/name', async (req, res) => {
 });
 
 // --- CHANGE PASSWORD ---
-router.patch('/profile/password', async (req, res) => {
-    const { userId, currentPassword, newPassword, confirmPassword } = req.body;
+router.patch('/profile/password', verifyToken, async (req, res) => {
+    const userId = req.user.user_id;
+    const { currentPassword, newPassword, confirmPassword } = req.body;
 
-    if (!userId || !currentPassword || !newPassword) {
+    if (!currentPassword || !newPassword) {
         return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -79,19 +90,20 @@ router.patch('/profile/password', async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // MySQL can return columns as Password_Hash or password_hash depending on config
-        const row = rows[0];
-        const storedPassword = row.Password_Hash || row.password_hash;
-        if (!storedPassword || storedPassword !== currentPassword) {
+        const storedHash = rows[0].Password_Hash || rows[0].password_hash;
+        const match = await bcrypt.compare(currentPassword, storedHash);
+
+        if (!match) {
             return res.status(401).json({ message: 'Current password is incorrect' });
         }
 
-        await db.query('UPDATE users SET Password_Hash = ? WHERE User_ID = ?', [newPassword, userId]);
+        const newHash = await bcrypt.hash(newPassword, 10);
+        await db.query('UPDATE users SET Password_Hash = ? WHERE User_ID = ?', [newHash, userId]);
         res.json({ success: true, message: 'Password updated successfully' });
 
     } catch (err) {
         console.error("Error changing password:", err);
-        res.status(500).json({ message: err.message || 'Server error' });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 

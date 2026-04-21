@@ -10,26 +10,29 @@ router.get('/session/:sessionId', async (req, res) => {
   const sessionId = req.params.sessionId;
 
   // Set this to 2 minutes (or 10/60 if you are still using the 10-second test interval)
-  const LOG_INTERVAL_MINUTES = 2; 
+  const LOG_INTERVAL_MINUTES = 0.5; // 30 seconds
 
   try {
-    // 1. Get Session Details (Start Time, End Time)
+    // 1. Get Session Details (Start Time, End Time, Duration)
+    // Use SQL to build the full start datetime (Session_Date is DATE, Start_Time is TIME)
     const [sessionData] = await db.query(
-        'SELECT * FROM sessions WHERE Session_ID = ?', 
+        `SELECT *,
+          CONCAT(DATE_FORMAT(Session_Date, '%Y-%m-%d'), ' ', Start_Time) as full_start_datetime,
+          TIMESTAMPDIFF(SECOND, CONCAT(Session_Date, ' ', Start_Time), COALESCE(End_Time, NOW())) as duration_seconds
+         FROM sessions WHERE Session_ID = ?`,
         [sessionId]
     );
-    
+
     if (sessionData.length === 0) return res.status(404).json({message: "Session not found"});
     const session = sessionData[0];
 
-    // If the session hasn't ended manually, use the current time for real-time analytics
+    const sessionStartTime = new Date(session.full_start_datetime);
     const sessionEndTime = session.End_Time ? new Date(session.End_Time) : new Date();
-    const sessionStartTime = new Date(session.Start_Time);
+    const sessionDuration = Math.max(1, session.duration_seconds / 60);
 
     // 2. Complex Query: Get Attendance Stats per Student
-    // Swapped 'Time_First_Seen' to 'Time_Seen' to match our Python DB logs
     const query = `
-      SELECT 
+      SELECT
         s.Student_ID,
         s.First_Name,
         s.Last_Name,
@@ -44,41 +47,45 @@ router.get('/session/:sessionId', async (req, res) => {
 
     const [logs] = await db.query(query, [sessionId]);
 
-    // 3. Process the Logic in JavaScript
-    // Calculate total session length in minutes
-    const sessionDuration = Math.max(1, (sessionEndTime - sessionStartTime) / 60000); 
-    
-    // Calculate how many logs a student SHOULD have for 100% attendance
+    // 3. Calculate how many logs a student SHOULD have for 100% attendance
     const maxExpectedLogs = Math.max(1, Math.floor(sessionDuration / LOG_INTERVAL_MINUTES));
     
     const results = logs.map(student => {
       const arrival = new Date(student.arrival_time);
       const lastSeen = new Date(student.last_seen_time);
-      
-      // LOGIC 1: LATE (Arrived > 10 mins after start)
+
       const minutesLate = (arrival - sessionStartTime) / 60000;
-      let status = "Present";
-      
-      if (minutesLate > 10) {
-        status = "Late";
-      }
-
-      // LOGIC 2: LEFT EARLY (Last seen > 10 mins before end)
       const minutesBeforeEnd = (sessionEndTime - lastSeen) / 60000;
-      if (minutesBeforeEnd > 10) {
-        status = "Left Early";
-      }
+      const isLate = minutesLate > 10;
+      const isLeftEarly = minutesBeforeEnd > 10;
 
-      // LOGIC 3: ENGAGEMENT %
-      // (Actual Logs / Max Expected Logs) * 100
-      let rawEngagement = Math.round((student.total_logs / maxExpectedLogs) * 100);
-      let engagement = Math.min(100, rawEngagement); // Cap at 100% in case of extra logs
+      // All applicable flags — used in the student row
+      const statuses = [];
+      if (isLate) statuses.push("Late");
+      if (isLeftEarly) statuses.push("Left Early");
+      if (statuses.length === 0) statuses.push("Present");
+
+      // Single status for pie-chart bucketing — Left Early overrides Late
+      let status = "Present";
+      if (isLate) status = "Late";
+      if (isLeftEarly) status = "Left Early";
+
+      const rawEngagement = Math.round((student.total_logs / maxExpectedLogs) * 100);
+      const engagement = Math.min(100, rawEngagement);
+
+      // If engagement is too low to be meaningful, treat as absent regardless of timing
+      if (engagement < 20) {
+        status = "Absent";
+        statuses.length = 0;
+        statuses.push("Absent");
+      }
 
       return {
         id: student.Student_ID,
         name: `${student.First_Name} ${student.Last_Name}`,
         arrival: arrival.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: status,
+        status,
+        statuses,
         engagement: engagement + "%"
       };
     });
@@ -91,20 +98,57 @@ router.get('/session/:sessionId', async (req, res) => {
   }
 });
 
+// GET /api/analytics/sessions-by-date/:moduleCode/:date
+// Returns all session IDs for a module on a specific date
+router.get('/sessions-by-date/:moduleCode/:date', async (req, res) => {
+  const { moduleCode, date } = req.params;
+  try {
+    const [rows] = await db.query(
+      'SELECT Session_ID FROM sessions WHERE Module_Code = ? AND DATE(Session_Date) = ?',
+      [moduleCode, date]
+    );
+    res.json(rows.map(r => r.Session_ID));
+  } catch (err) {
+    console.error("[SESSIONS BY DATE ERROR]", err);
+    res.status(500).json({ message: 'Error fetching sessions for date' });
+  }
+});
+
+// GET /api/analytics/session-dates/:moduleCode
+// Returns all dates that have at least one session for the given module
+router.get('/session-dates/:moduleCode', async (req, res) => {
+  const { moduleCode } = req.params;
+  try {
+    const [rows] = await db.query(
+      `SELECT DISTINCT DATE_FORMAT(Session_Date, '%Y-%m-%d') as date
+       FROM sessions WHERE Module_Code = ? ORDER BY date`,
+      [moduleCode]
+    );
+    res.json(rows.map(r => r.date));
+  } catch (err) {
+    console.error("[SESSION DATES ERROR]", err);
+    res.status(500).json({ message: 'Error fetching session dates' });
+  }
+});
+
 // GET /api/analytics/module/:moduleCode
 // Returns semester-wide engagement stats for all enrolled students in a module
 router.get('/module/:moduleCode', async (req, res) => {
   const { moduleCode } = req.params;
-  const LOG_INTERVAL_SECONDS = 10;
+  const { startDate, endDate } = req.query;
+  const LOG_INTERVAL_SECONDS = 30; // 30-second logging interval, matches session analytics
 
   try {
     // 1. Get all sessions for this module with duration calculated in SQL
-    const [sessions] = await db.query(
-      `SELECT Session_ID,
-        TIMESTAMPDIFF(SECOND, CONCAT(Session_Date, ' ', Start_Time), COALESCE(End_Time, NOW())) as duration_seconds
-       FROM sessions WHERE Module_Code = ?`,
-      [moduleCode]
-    );
+    const sessionsQuery = (startDate && endDate)
+      ? `SELECT Session_ID,
+          TIMESTAMPDIFF(SECOND, CONCAT(Session_Date, ' ', Start_Time), COALESCE(End_Time, NOW())) as duration_seconds
+         FROM sessions WHERE Module_Code = ? AND Session_Date BETWEEN ? AND ?`
+      : `SELECT Session_ID,
+          TIMESTAMPDIFF(SECOND, CONCAT(Session_Date, ' ', Start_Time), COALESCE(End_Time, NOW())) as duration_seconds
+         FROM sessions WHERE Module_Code = ?`;
+
+    const [sessions] = await db.query(sessionsQuery, (startDate && endDate) ? [moduleCode, startDate, endDate] : [moduleCode]);
 
     if (sessions.length === 0) {
       return res.json({ totalSessions: 0, students: [] });

@@ -1,8 +1,29 @@
 import axios from 'axios';
 
-// Create a configured instance of axios
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // This points to your Node.js backend
+  baseURL: 'http://localhost:5000/api',
 });
+
+// Attach JWT token to every request automatically
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// If the server returns 401/403, clear stale auth and redirect to login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;

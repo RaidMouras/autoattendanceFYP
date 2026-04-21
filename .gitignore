@@ -1,3 +1,42 @@
 venv/
 *.dll
 *.pyc
+*.whl
+.env
+backend/.env
+
+# Report / dissertation writing files
+abstract.txt
+projectreport.txt
+CHPT1.md
+CHPT2.md
+*.claude
+# Loose media / photos not part of the app
+5GF.jpg
+group_photo
+
+# Standalone desktop scripts (pre-web versions)
+python_engine/attendance_taker.py
+python_engine/enroller.py
+python_engine/unlimited_attendance.py
+
+# Test / benchmark / experiment scripts
+python_engine/accuracy_test.py
+python_engine/benchmark_fps.py
+python_engine/test_detector_comparison.py
+python_engine/test_gpu.py
+python_engine/test_recognition_methods.py
+python_engine/test_session_end_to_end.py
+python_engine/test_unit.py
+
+backend/reset_password.js
+
+# Experiments directory (notebooks, charts, test data)
+experiments/
+
+# Python cache
+python_engine/__pycache__/
+
+# Node modules
+backend/node_modules/
+frontend/node_modules/

@@ -1,5 +1,14 @@
+import os
 import mysql.connector
 from mysql.connector import Error
+
+# Load .env from the backend folder (one level up)
+try:
+    from dotenv import load_dotenv
+    dotenv_path = os.path.join(os.path.dirname(__file__), '..', 'backend', '.env')
+    load_dotenv(dotenv_path)
+except ImportError:
+    pass  # python-dotenv not installed; fall back to system environment variables
 
 def create_db_connection():
     """
@@ -8,12 +17,11 @@ def create_db_connection():
     """
     try:
         connection = mysql.connector.connect(
-            host='localhost',        # Since MySQL is running on your machine
-            user='root',             # Your MySQL username (usually 'root')
-            password='Slow_bo@t2004',# <--- REPLACE THIS with your Workbench password
-            database='attendance_system' # The DB name we created in SQL
+            host=os.environ.get('DB_HOST', 'localhost'),
+            user=os.environ.get('DB_USER', 'root'),
+            password=os.environ.get('DB_PASS', ''),
+            database=os.environ.get('DB_NAME', 'attendance_system')
         )
-        
         return connection
     except Error as err:
         print(f"Error: '{err}'")

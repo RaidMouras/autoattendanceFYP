@@ -33,18 +33,19 @@ function Login() {
 
       if (response.data.success) {
         const userData = {
-          user_id: response.data.user_id, 
+          user_id: response.data.user_id,
           name: response.data.name,
           email: response.data.email,
           role: response.data.role
         };
 
+        localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(userData));
         
         if (response.data.role === 'admin') {
           navigate('/admin');
         } else {
-          navigate('/dashboard'); 
+          navigate('/Dashboard');
         }
       }
     } catch (err) {

@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import '../styles/AdminDashboard.css';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
   // Main List State
   const [lecturers, setLecturers] = useState([]);
   
@@ -121,7 +129,10 @@ const AdminDashboard = () => {
 
   return (
     <div className="admin-container">
-      <header className="admin-header"><h1>Admin Dashboard</h1></header>
+      <header className="admin-header">
+        <h1>Admin Dashboard</h1>
+        <button className="admin-logout-btn" onClick={handleLogout}>Logout</button>
+      </header>
 
       <div className="list-section">
         <div className="list-header"><h2>Lecturer List</h2></div>
@@ -182,29 +193,29 @@ const AdminDashboard = () => {
                 
                 {/* Row 1: Code & Name */}
                 <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
-                    <input 
-                        type="text" placeholder="Code (e.g. CS4001)" 
-                        value={modCode} onChange={e=>setModCode(e.target.value)} 
-                        required style={{flex: 1, padding: '8px'}}
+                    <input
+                        type="text" placeholder="Code (e.g. CS4001)"
+                        value={modCode} onChange={e=>setModCode(e.target.value)}
+                        required style={{flex: 1, minWidth: 0, padding: '8px', boxSizing: 'border-box'}}
                     />
-                    <input 
-                        type="text" placeholder="Module Name" 
-                        value={modName} onChange={e=>setModName(e.target.value)} 
-                        required style={{flex: 2, padding: '8px'}}
+                    <input
+                        type="text" placeholder="Module Name"
+                        value={modName} onChange={e=>setModName(e.target.value)}
+                        required style={{flex: 1, minWidth: 0, padding: '8px', boxSizing: 'border-box'}}
                     />
                 </div>
 
                 {/* ✅ Row 2: Semester Dropdowns */}
                 <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
-                    <select value={semNumber} onChange={e => setSemNumber(e.target.value)} style={{flex: 1, padding: '8px'}}>
+                    <select value={semNumber} onChange={e => setSemNumber(e.target.value)} style={{flex: 1, minWidth: 0, padding: '8px', boxSizing: 'border-box'}}>
                         <option value="Semester 1">Semester 1</option>
                         <option value="Semester 2">Semester 2</option>
                     </select>
 
-                    <select value={acadYear} onChange={e => setAcadYear(e.target.value)} style={{flex: 1, padding: '8px'}}>
+                    <select value={acadYear} onChange={e => setAcadYear(e.target.value)} style={{flex: 1, minWidth: 0, padding: '8px', boxSizing: 'border-box'}}>
                         <option value="2025/26">2025/26</option>
                         <option value="2026/27">2026/27</option>
-                        <option value="2024/25">2027/28</option>
+                        <option value="2027/28">2027/28</option>
                     </select>
                 </div>
 

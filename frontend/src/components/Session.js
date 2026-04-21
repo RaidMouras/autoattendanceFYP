@@ -34,11 +34,18 @@ function Session() {
     const [showEnrollModal, setShowEnrollModal] = useState(false);
     const [newStudent, setNewStudent] = useState({ id: '', first: '', last: '' });
     const [isScanning, setIsScanning] = useState(false); // Tracks if Python camera is active
+    const [enrollCamera, setEnrollCamera] = useState(0);
 
     // 4. Session Start / Countdown State
+    const [showCameraModal, setShowCameraModal] = useState(false);
+    const [availableCameras, setAvailableCameras] = useState([]);
+    const [cameraMode, setCameraMode] = useState('all'); // 'all' | 'single'
+    const [selectedCamera, setSelectedCamera] = useState(null);
     const [showSessionModal, setShowSessionModal] = useState(false);
     const [sessionDuration, setSessionDuration] = useState(0); // 0 = Manual, otherwise minutes
+    const [sessionCameras, setSessionCameras] = useState(null); // null = all
     const [countdown, setCountdown] = useState(null); // null = hidden, 3, 2, 1, 0
+    const [sessionRunning, setSessionRunning] = useState(false);
 
     // --- EFFECTS ---
 
@@ -66,6 +73,13 @@ function Session() {
 
     useEffect(() => {
         fetchStudents();
+    }, [moduleCode]);
+
+    // Check if a session is already running for this module
+    useEffect(() => {
+        api.get(`/session/status/${moduleCode}`)
+            .then(res => setSessionRunning(res.data.running))
+            .catch(() => {});
     }, [moduleCode]);
 
     // Click Outside to Close Profile
@@ -138,6 +152,7 @@ function Session() {
     };
 
     const handleLogout = () => {
+        localStorage.removeItem('token');
         localStorage.removeItem('user');
         navigate('/');
     };
@@ -159,7 +174,18 @@ function Session() {
     };
 
     // --- ENROLLMENT HANDLERS ---
-    const handleEnroll = () => {
+    const handleEnroll = async () => {
+        let cameras = availableCameras;
+        if (cameras.length === 0) {
+            try {
+                const res = await api.get('/session/cameras');
+                cameras = res.data.cameras || [];
+                setAvailableCameras(cameras);
+            } catch {
+                cameras = [];
+            }
+        }
+        setEnrollCamera(cameras.length > 0 ? cameras[0] : 0);
         setShowEnrollModal(true);
     };
 
@@ -172,7 +198,8 @@ function Session() {
                 id: newStudent.id,
                 firstName: newStudent.first,
                 lastName: newStudent.last,
-                moduleCode: moduleCode
+                moduleCode: moduleCode,
+                cameraIndex: enrollCamera
             });
 
             setIsScanning(false);
@@ -183,16 +210,33 @@ function Session() {
         } catch (err) {
             console.error(err);
             setIsScanning(false);
-            alert("Error: Camera process failed or was closed early.");
+            const msg = err.response?.data?.message || 'Camera process failed or was closed early.';
+            alert(`Enrollment failed: ${msg}`);
         }
     };
 
     // --- SESSION START HANDLERS ---
-    const openSessionModal = () => {
+    const openSessionModal = async () => {
+        try {
+            const res = await api.get('/session/cameras');
+            setAvailableCameras(res.data.cameras || []);
+        } catch {
+            setAvailableCameras([]);
+        }
+        setCameraMode('all');
+        setSelectedCamera(null);
+        setShowCameraModal(true);
+    };
+
+    const confirmCameraChoice = () => {
+        const cameras = cameraMode === 'all' ? null : [selectedCamera ?? availableCameras[0]];
+        setSessionCameras(cameras);
+        setShowCameraModal(false);
         setShowSessionModal(true);
     };
 
-    const startSessionSequence = () => {
+    const startSessionSequence = (duration) => {
+        setSessionDuration(duration);
         setShowSessionModal(false);
         setCountdown(3); // Start 3, 2, 1...
     };
@@ -201,18 +245,31 @@ function Session() {
         try {
             await api.post('/session/start', {
                 moduleCode: moduleCode,
-                duration: sessionDuration
+                duration: sessionDuration,
+                cameras: sessionCameras
             });
-            // Don't need an alert, the Python window appearing is the feedback
+            setSessionRunning(true);
         } catch (err) {
-            alert("Failed to launch attendance system. Is the backend running?");
+            if (err.response?.status === 409) {
+                alert("A session is already running for this module.");
+            } else {
+                alert("Failed to launch attendance system. Is the backend running?");
+            }
             console.error(err);
         }
     };
 
-    const handleSchedule = () => {
-        alert("Schedule Feature Coming Soon!");
+    const handleStopSession = async () => {
+        if (!window.confirm("Stop the running session?")) return;
+        try {
+            await api.post(`/session/stop/${moduleCode}`);
+            setSessionRunning(false);
+        } catch (err) {
+            alert("Failed to stop session. It may have already ended.");
+            setSessionRunning(false);
+        }
     };
+
 
 
     // --- RENDER ---
@@ -288,15 +345,18 @@ function Session() {
 
                 {/* CONTROLS */}
                 <div className="control-panel">
-                    <button className="cmd-btn blue" onClick={handleEnroll}>
+                    <button className="cmd-btn blue" onClick={handleEnroll} disabled={sessionRunning}>
                         <span>👤</span> Enroll Student
                     </button>
-                    <button className="cmd-btn orange" onClick={handleSchedule}>
-                        <span>📅</span> Schedule Session
-                    </button>
-                    <button className="cmd-btn green" onClick={openSessionModal}>
-                        <span>▶</span> Start Session Now
-                    </button>
+                    {sessionRunning ? (
+                        <button className="cmd-btn red" onClick={handleStopSession}>
+                            <span>⏹</span> Stop Session
+                        </button>
+                    ) : (
+                        <button className="cmd-btn green" onClick={openSessionModal}>
+                            <span>▶</span> Start Session Now
+                        </button>
+                    )}
                 </div>
 
                 {/* STUDENT LIST */}
@@ -384,6 +444,23 @@ function Session() {
                                     />
                                 </div>
 
+                                {availableCameras.length > 1 && !isScanning && (
+                                    <div className="modal-field">
+                                        <label>Camera</label>
+                                        <select
+                                            className="modal-input"
+                                            value={enrollCamera}
+                                            onChange={e => setEnrollCamera(Number(e.target.value))}
+                                        >
+                                            {availableCameras.map(idx => (
+                                                <option key={idx} value={idx}>
+                                                    Camera {idx}{idx === 0 ? ' (laptop)' : ' (external)'}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
                                 {isScanning && (
                                     <div className="modal-scanning">
                                         <strong>Camera window opened!</strong>
@@ -411,28 +488,89 @@ function Session() {
                     </div>
                 )}
 
-                {/* --- 2. SESSION DURATION MODAL (NEW) --- */}
+                {/* --- 2. CAMERA SELECTION MODAL --- */}
+                {showCameraModal && (
+                    <div className="modal-overlay">
+                        <div className="modal-content" style={{textAlign: 'center'}}>
+                            <h2 className="modal-title">Camera Setup</h2>
+                            <p>
+                                {availableCameras.length === 0
+                                    ? 'No cameras detected.'
+                                    : `${availableCameras.length} camera(s) detected: [${availableCameras.map(i => i === 0 ? `${i} (laptop)` : `${i} (external)`).join(', ')}]`}
+                            </p>
+
+                            <div className="duration-options" style={{marginTop: '16px'}}>
+                                <button
+                                    className={`duration-btn ${cameraMode === 'all' ? 'active' : ''}`}
+                                    onClick={() => setCameraMode('all')}
+                                >
+                                    All Cameras
+                                </button>
+                                <button
+                                    className={`duration-btn ${cameraMode === 'single' ? 'active' : ''}`}
+                                    onClick={() => setCameraMode('single')}
+                                    disabled={availableCameras.length === 0}
+                                >
+                                    Single Camera
+                                </button>
+                            </div>
+
+                            {cameraMode === 'single' && availableCameras.length > 0 && (
+                                <div style={{marginTop: '16px'}}>
+                                    <label style={{marginRight: '10px'}}>Choose camera:</label>
+                                    <select
+                                        value={selectedCamera ?? availableCameras[0]}
+                                        onChange={e => setSelectedCamera(Number(e.target.value))}
+                                        className="modal-input"
+                                        style={{width: 'auto', display: 'inline-block'}}
+                                    >
+                                        {availableCameras.map(idx => (
+                                            <option key={idx} value={idx}>
+                                                Camera {idx} {idx === 0 ? '(laptop)' : '(external)'}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div className="modal-actions" style={{marginTop: '24px'}}>
+                                <button onClick={() => setShowCameraModal(false)} className="modal-cancel-btn">
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmCameraChoice}
+                                    className="modal-submit-btn"
+                                    disabled={availableCameras.length === 0}
+                                >
+                                    Next →
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- 3. SESSION DURATION MODAL --- */}
                 {showSessionModal && (
                     <div className="modal-overlay">
                         <div className="modal-content" style={{textAlign: 'center'}}>
                             <h2 className="modal-title">Start Class Session</h2>
                             <p>Select how long the camera should run:</p>
-                            
+
                             <div className="duration-options">
-                                <button className="duration-btn" onClick={() => { setSessionDuration(60); setTimeout(startSessionSequence, 0); }}>
+                                <button className="duration-btn" onClick={() => startSessionSequence(60)}>
                                     1 Hour
                                 </button>
-                                <button className="duration-btn" onClick={() => { setSessionDuration(120); setTimeout(startSessionSequence, 0); }}>
+                                <button className="duration-btn" onClick={() => startSessionSequence(120)}>
                                     2 Hours
                                 </button>
-                                <button className="duration-btn" onClick={() => { setSessionDuration(180); setTimeout(startSessionSequence, 0); }}>
+                                <button className="duration-btn" onClick={() => startSessionSequence(180)}>
                                     3 Hours
                                 </button>
-                                <button className="duration-btn manual" onClick={() => { setSessionDuration(0); setTimeout(startSessionSequence, 0); }}>
+                                <button className="duration-btn manual" onClick={() => startSessionSequence(0)}>
                                     ♾️ Manual Stop
                                 </button>
                             </div>
-                            
+
                             <button onClick={() => setShowSessionModal(false)} className="modal-cancel-btn" style={{marginTop: '20px'}}>
                                 Cancel
                             </button>
@@ -440,7 +578,7 @@ function Session() {
                     </div>
                 )}
 
-                {/* --- 3. COUNTDOWN OVERLAY (NEW) --- */}
+                {/* --- 4. COUNTDOWN OVERLAY --- */}
                 {countdown !== null && (
                     <div className="countdown-overlay">
                         <div className="countdown-number">

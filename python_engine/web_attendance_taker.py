@@ -1,12 +1,12 @@
 """
-web_attendance_taker.py (v13.0)
+web_attendance_taker.py (v15.2)
 --------------------------------
-- AI detection runs in a separate PROCESS (bypasses GIL entirely)
-- Camera thread reads frames continuously
-- Display loop runs at full camera FPS
-- Per-student cooldown logging
-- Live countdown / elapsed timer overlay
-- Graceful shutdown on duration expiry or 'Q' key press
+- AI runs in a separate mp.Process (own GIL — display loop never starved)
+- Pre-scale frame BEFORE putting in queue: ~1.5 MB payload vs ~25 MB full-res
+- AI process receives already-scaled frame, scales coords back up for drawing
+- Attendance DB writes in a background thread (never block display loop)
+- Multi-camera: auto-detects from CAMERA_START index
+- Display downscaled to DISPLAY_WIDTH
 """
 
 import sys
@@ -15,14 +15,18 @@ import cv2
 import face_recognition
 import pickle
 import threading
+import queue
 import multiprocessing as mp
 from datetime import datetime, timedelta
 from db_connection import create_db_connection
 
 # --- CONFIGURATION ---
-LOG_INTERVAL  = 10    # Seconds between re-logging the same student
-TOLERANCE     = 0.5   # Face match strictness (lower = stricter)
-SCALE_FACTOR  = 0.5   # Resize for CNN detection
+LOG_INTERVAL  = 30    # Seconds between re-logging the same student
+TOLERANCE     = 0.55  # Face match threshold (lower = stricter)
+SCALE_FACTOR  = 0.5   # Resize factor for CNN detection
+CAMERA_START  = 0     # Start from index 0 (laptop webcam)
+MAX_CAMERAS   = 6
+DISPLAY_WIDTH = 1280  # Display window width (height auto-scaled)
 
 
 # ---------------------------------------------------------------------------
@@ -37,8 +41,10 @@ def create_session_entry(module_code, duration_minutes):
         start_time   = datetime.now()
         session_date = start_time.date()
         end_time     = start_time + timedelta(minutes=duration_minutes) if duration_minutes > 0 else None
-        sql = "INSERT INTO sessions (Module_Code, Session_Date, Start_Time, End_Time, is_active) VALUES (%s, %s, %s, %s, 1)"
-        cursor.execute(sql, (module_code, session_date, start_time, end_time))
+        cursor.execute(
+            "INSERT INTO sessions (Module_Code, Session_Date, Start_Time, End_Time, is_active) VALUES (%s, %s, %s, %s, 1)",
+            (module_code, session_date, start_time, end_time)
+        )
         conn.commit()
         session_id = cursor.lastrowid
         print(f"[SESSION] Created Session ID: {session_id}", flush=True)
@@ -56,15 +62,14 @@ def close_session_in_db(session_id):
     if not conn: return
     try:
         cursor = conn.cursor()
-        now = datetime.now()
         cursor.execute(
             "UPDATE sessions SET End_Time = %s, is_active = 0 WHERE Session_ID = %s",
-            (now, session_id)
+            (datetime.now(), session_id)
         )
         conn.commit()
-        print(f"[SESSION] Session {session_id} closed at {now}", flush=True)
-    except:
-        pass
+        print(f"[SESSION] Session {session_id} closed.", flush=True)
+    except Exception as e:
+        print(f"[SESSION] Failed to close session {session_id} in DB: {e}", flush=True)
     finally:
         cursor.close()
         conn.close()
@@ -90,84 +95,50 @@ def load_known_faces():
     return known_encodings, known_ids
 
 
-def mark_attendance(session_id, student_id):
-    conn = create_db_connection()
-    if not conn: return
-    try:
-        cursor = conn.cursor()
-        now = datetime.now()
-        cursor.execute(
-            "INSERT INTO attendance_logs (Session_ID, Student_ID, Time_Seen, Status) VALUES (%s, %s, %s, %s)",
-            (session_id, student_id, now, "Present")
-        )
-        conn.commit()
-        print(f"[{now.strftime('%H:%M:%S')}] [LOGGED] Student {student_id} attendance recorded.", flush=True)
-    except Exception as e:
-        print(f"[DB INSERT ERROR] {e}", flush=True)
-    finally:
-        cursor.close()
-        conn.close()
+# ---------------------------------------------------------------------------
+# ASYNC LOGGING THREAD — DB writes never block the display loop
+# ---------------------------------------------------------------------------
+
+class AttendanceLogger:
+    def __init__(self):
+        self._q      = queue.Queue()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def log(self, session_id, student_id):
+        self._q.put((session_id, student_id))
+
+    def _run(self):
+        while True:
+            session_id, student_id = self._q.get()
+            conn = create_db_connection()
+            if not conn:
+                continue
+            try:
+                cursor = conn.cursor()
+                now = datetime.now()
+                cursor.execute(
+                    "INSERT INTO attendance_logs (Session_ID, Student_ID, Time_Seen, Status) VALUES (%s, %s, %s, %s)",
+                    (session_id, student_id, now, "Present")
+                )
+                conn.commit()
+                print(f"[{now.strftime('%H:%M:%S')}] [LOGGED] Student {student_id}", flush=True)
+            except Exception as e:
+                print(f"[DB INSERT ERROR] {e}", flush=True)
+            finally:
+                cursor.close()
+                conn.close()
+            self._q.task_done()
 
 
 # ---------------------------------------------------------------------------
-# AI PROCESS: runs in a separate process — completely separate GIL
-# ---------------------------------------------------------------------------
-
-def ai_process_fn(session_id, known_encodings, known_ids, frame_queue, result_queue, stop_event):
-    cooldown   = {}
-    multiplier = 1.0 / SCALE_FACTOR
-
-    while not stop_event.is_set():
-        try:
-            frame = frame_queue.get(timeout=0.1)
-        except Exception:
-            continue
-
-        small = cv2.resize(frame, (0, 0), fx=SCALE_FACTOR, fy=SCALE_FACTOR)
-        rgb   = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
-
-        locs = face_recognition.face_locations(rgb, number_of_times_to_upsample=0, model="cnn")
-        encs = face_recognition.face_encodings(rgb, locs)
-
-        boxes = []
-        for (top, right, bottom, left), enc in zip(locs, encs):
-            top    = int(top    * multiplier)
-            right  = int(right  * multiplier)
-            bottom = int(bottom * multiplier)
-            left   = int(left   * multiplier)
-
-            matches = face_recognition.compare_faces(known_encodings, enc, tolerance=TOLERANCE)
-            name  = "Unknown"
-            color = (0, 0, 255)
-
-            if True in matches:
-                student_id = known_ids[matches.index(True)]
-                name  = str(student_id)
-                color = (0, 255, 0)
-                now = time.time()
-                if now - cooldown.get(student_id, 0) >= LOG_INTERVAL:
-                    mark_attendance(session_id, student_id)
-                    cooldown[student_id] = now
-
-            boxes.append((left, top, right, bottom, name, color))
-
-        # Replace stale result
-        if not result_queue.empty():
-            try: result_queue.get_nowait()
-            except Exception: pass
-        result_queue.put(boxes)
-
-
-# ---------------------------------------------------------------------------
-# CAMERA THREAD: reads frames continuously so display loop never blocks
+# CAMERA STREAM — dedicated thread so the main loop never blocks on I/O
 # ---------------------------------------------------------------------------
 
 class CameraStream:
     def __init__(self, src):
         self.cap = cv2.VideoCapture(src)
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.cap.set(cv2.CAP_PROP_FPS, 30)
         self.ret, self.frame = self.cap.read()
         self.lock    = threading.Lock()
@@ -179,8 +150,7 @@ class CameraStream:
         while self.running:
             ret, frame = self.cap.read()
             with self.lock:
-                self.ret   = ret
-                self.frame = frame
+                self.ret, self.frame = ret, frame
 
     def read(self):
         with self.lock:
@@ -188,38 +158,120 @@ class CameraStream:
 
     def stop(self):
         self.running = False
-        self.thread.join()
+        self.thread.join(timeout=2)
         self.cap.release()
+
+
+# ---------------------------------------------------------------------------
+# AI PROCESS — separate process = completely separate GIL
+# Receives pre-scaled (small) frame → no heavy serialization.
+# Puts back only lightweight result: list of (box coords + label + color).
+# ---------------------------------------------------------------------------
+
+def ai_process_fn(known_encodings, known_ids, frame_queue, result_queue, stop_event):
+    """Runs in a separate process. Frames arrive already scaled."""
+    multiplier = 1.0 / SCALE_FACTOR   # scale detected coords back to full-res
+
+    while not stop_event.is_set():
+        try:
+            small_rgb = frame_queue.get(timeout=0.1)
+        except Exception:
+            continue
+
+        locs = face_recognition.face_locations(small_rgb, number_of_times_to_upsample=1, model="cnn")
+        encs = face_recognition.face_encodings(small_rgb, locs)
+
+        boxes, recognized_ids = [], []
+        for (top, right, bottom, left), enc in zip(locs, encs):
+            top    = int(top    * multiplier)
+            right  = int(right  * multiplier)
+            bottom = int(bottom * multiplier)
+            left   = int(left   * multiplier)
+
+            matches = face_recognition.compare_faces(known_encodings, enc, tolerance=TOLERANCE)
+            name, color = "Unknown", (0, 0, 255)
+            if True in matches:
+                student_id = known_ids[matches.index(True)]
+                name, color = str(student_id), (0, 255, 0)
+                recognized_ids.append(student_id)
+
+            boxes.append((left, top, right, bottom, name, color))
+
+        # Replace stale result if the main loop hasn't consumed the last one yet
+        if not result_queue.empty():
+            try: result_queue.get_nowait()
+            except: pass
+        result_queue.put((boxes, recognized_ids))
+
+
+# ---------------------------------------------------------------------------
+# CAMERA DETECTION
+# ---------------------------------------------------------------------------
+
+def detect_cameras():
+    available = []
+    for i in range(CAMERA_START, CAMERA_START + MAX_CAMERAS):
+        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+        if cap.isOpened():
+            available.append(i)
+            cap.release()
+        else:
+            cap.release()
+            break
+    if not available:
+        print("[ERROR] No cameras found.", flush=True)
+    else:
+        print(f"[INFO] Detected {len(available)} camera(s): indices {available}", flush=True)
+    return available
 
 
 # ---------------------------------------------------------------------------
 # MAIN LOOP
 # ---------------------------------------------------------------------------
 
-def run_attendance_system(module_code, duration_minutes):
+def run_attendance_system(module_code, duration_minutes, selected_cameras=None):
     session_id = create_session_entry(module_code, duration_minutes)
     if not session_id: return
 
-    print(f"[START] Camera launching for {module_code}...", flush=True)
+    if selected_cameras is not None:
+        camera_indices = selected_cameras
+    else:
+        camera_indices = detect_cameras()
+
+    if not camera_indices:
+        print("[ERROR] No cameras available. Exiting.", flush=True)
+        return
+
+    print(f"[START] Session {session_id} | Module {module_code} | {len(camera_indices)} camera(s)", flush=True)
+
     known_encodings, known_ids = load_known_faces()
 
-    frame_queue  = mp.Queue(maxsize=1)
-    result_queue = mp.Queue(maxsize=1)
-    stop_event   = mp.Event()
+    logger     = AttendanceLogger()
+    cameras    = [CameraStream(idx) for idx in camera_indices]
 
-    ai_proc = mp.Process(
-        target=ai_process_fn,
-        args=(session_id, known_encodings, known_ids, frame_queue, result_queue, stop_event),
-        daemon=True
-    )
-    ai_proc.start()
+    # One queue pair + AI process per camera
+    frame_queues  = [mp.Queue(maxsize=1) for _ in camera_indices]
+    result_queues = [mp.Queue(maxsize=1) for _ in camera_indices]
+    stop_event    = mp.Event()
 
-    camera     = CameraStream(0)
+    ai_procs = [
+        mp.Process(
+            target=ai_process_fn,
+            args=(known_encodings, known_ids, fq, rq, stop_event),
+            daemon=True
+        )
+        for fq, rq in zip(frame_queues, result_queues)
+    ]
+    for p in ai_procs:
+        p.start()
+
+    last_boxes   = [[] for _ in cameras]
+    fps_counters = [0]  * len(cameras)
+    fps_times    = [time.time()] * len(cameras)
+    fps_displays = [0]  * len(cameras)
+
+    cooldown   = {}   # student_id → last-logged timestamp
     start_time = time.time()
-    last_boxes = []
-    fps_counter = 0
-    fps_time    = time.time()
-    fps_display = 0
 
     try:
         while True:
@@ -229,57 +281,72 @@ def run_attendance_system(module_code, duration_minutes):
                 print("[TIME UP] Session duration reached.", flush=True)
                 break
 
-            ret, frame = camera.read()
-            if not ret or frame is None:
-                continue
+            for i, (camera, fq, rq) in enumerate(zip(cameras, frame_queues, result_queues)):
+                ret, frame = camera.read()
+                if not ret or frame is None:
+                    continue
 
-            # Feed latest frame to AI process (drop stale)
-            if not frame_queue.empty():
-                try: frame_queue.get_nowait()
-                except Exception: pass
-            try:
-                frame_queue.put_nowait(frame.copy())
-            except Exception:
-                pass
+                # Scale frame down BEFORE queuing — sends ~1.5 MB, not ~25 MB
+                small     = cv2.resize(frame, (0, 0), fx=SCALE_FACTOR, fy=SCALE_FACTOR)
+                small_rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
 
-            # Pick up latest CNN result if available
-            try:
-                last_boxes = result_queue.get_nowait()
-            except Exception:
-                pass
+                # Drop stale queued frame, push latest
+                if not fq.empty():
+                    try: fq.get_nowait()
+                    except: pass
+                try:
+                    fq.put_nowait(small_rgb)
+                except:
+                    pass
 
-            # FPS counter
-            fps_counter += 1
-            if time.time() - fps_time >= 1.0:
-                fps_display = fps_counter
-                fps_counter = 0
-                fps_time    = time.time()
+                # Pull latest result (non-blocking)
+                try:
+                    boxes, recognized_ids = rq.get_nowait()
+                    last_boxes[i] = boxes
 
-            # Draw last known boxes on every frame
-            for (left, top, right, bottom, name, color) in last_boxes:
-                cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
-                cv2.putText(frame, name, (left, top - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.65, color, 2)
+                    now = time.time()
+                    for student_id in recognized_ids:
+                        if now - cooldown.get(student_id, 0) >= LOG_INTERVAL:
+                            logger.log(session_id, student_id)
+                            cooldown[student_id] = now
+                except:
+                    pass
 
-            # Timer overlay
-            fh = frame.shape[0]
-            if duration_minutes > 0:
-                remaining  = max(0, duration_minutes * 60 - elapsed)
-                mins, secs = int(remaining // 60), int(remaining % 60)
-                timer_text = f"Time Left: {mins:02d}:{secs:02d}"
-            else:
-                mins, secs = int(elapsed // 60), int(elapsed % 60)
-                timer_text = f"Elapsed: {mins:02d}:{secs:02d}"
+                # FPS counter
+                fps_counters[i] += 1
+                if time.time() - fps_times[i] >= 1.0:
+                    fps_displays[i] = fps_counters[i]
+                    fps_counters[i] = 0
+                    fps_times[i]    = time.time()
 
-            cv2.rectangle(frame, (10, fh - 90), (280, fh - 10), (0, 0, 0), -1)
-            cv2.putText(frame, f"FPS: {fps_display}", (20, fh - 66),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 1)
-            cv2.putText(frame, timer_text, (20, fh - 42),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
-            cv2.putText(frame, "Press 'Q' to stop session", (20, fh - 18),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 180, 180), 1)
+                # Draw bounding boxes (full-res coords from AI process)
+                for (left, top, right, bottom, name, color) in last_boxes[i]:
+                    cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
+                    cv2.putText(frame, name, (left, top - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, color, 2)
 
-            cv2.imshow(f'Attendance - {module_code}', frame)
+                # HUD
+                fh = frame.shape[0]
+                if duration_minutes > 0:
+                    remaining  = max(0, duration_minutes * 60 - elapsed)
+                    mins, secs = int(remaining // 60), int(remaining % 60)
+                    timer_text = f"Time Left: {mins:02d}:{secs:02d}"
+                else:
+                    mins, secs = int(elapsed // 60), int(elapsed % 60)
+                    timer_text = f"Elapsed: {mins:02d}:{secs:02d}"
+
+                cv2.rectangle(frame, (10, fh - 90), (300, fh - 10), (0, 0, 0), -1)
+                cv2.putText(frame, f"Cam {camera_indices[i]} | FPS: {fps_displays[i]}", (20, fh - 66),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 1)
+                cv2.putText(frame, timer_text, (20, fh - 42),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+                cv2.putText(frame, "Press 'Q' to stop session", (20, fh - 18),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 180, 180), 1)
+
+                # Resize for display only
+                disp_h     = int(frame.shape[0] * DISPLAY_WIDTH / frame.shape[1])
+                disp_frame = cv2.resize(frame, (DISPLAY_WIDTH, disp_h))
+                cv2.imshow(f'Attendance - {module_code} - Cam {camera_indices[i]}', disp_frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 print("[STOP] User pressed Q.", flush=True)
@@ -290,8 +357,10 @@ def run_attendance_system(module_code, duration_minutes):
     finally:
         print("[INFO] Closing session...", flush=True)
         stop_event.set()
-        ai_proc.join(timeout=3)
-        camera.stop()
+        for p in ai_procs:
+            p.join(timeout=3)
+        for camera in cameras:
+            camera.stop()
         if session_id:
             close_session_in_db(session_id)
         cv2.destroyAllWindows()
@@ -301,4 +370,8 @@ if __name__ == "__main__":
     mp.freeze_support()
     if len(sys.argv) < 3:
         sys.exit(1)
-    run_attendance_system(sys.argv[1], int(sys.argv[2]))
+    # Optional 3rd arg: comma-separated camera indices e.g. "0,1,2" or "all"
+    selected = None
+    if len(sys.argv) >= 4 and sys.argv[3] != 'all':
+        selected = [int(x) for x in sys.argv[3].split(',')]
+    run_attendance_system(sys.argv[1], int(sys.argv[2]), selected)
