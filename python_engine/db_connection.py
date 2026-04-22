@@ -10,10 +10,6 @@ except ImportError:
     pass
 
 def create_db_connection():
-    """
-    Establishes a connection to the MySQL database.
-    Returns the connection object if successful, None otherwise.
-    """
     try:
         connection = mysql.connector.connect(
             host=os.environ.get('DB_HOST', 'localhost'),

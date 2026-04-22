@@ -1,14 +1,3 @@
-"""
-web_attendance_taker.py (v15.2)
---------------------------------
-- AI runs in a separate mp.Process (own GIL — display loop never starved)
-- Pre-scale frame BEFORE putting in queue: ~1.5 MB payload vs ~25 MB full-res
-- AI process receives already-scaled frame, scales coords back up for drawing
-- Attendance DB writes in a background thread (never block display loop)
-- Multi-camera: auto-detects from CAMERA_START index
-- Display downscaled to DISPLAY_WIDTH
-"""
-
 import sys
 import time
 import cv2
@@ -151,7 +140,6 @@ class CameraStream:
 
 
 def ai_process_fn(known_encodings, known_ids, frame_queue, result_queue, stop_event):
-    """Runs in a separate process. Frames arrive already scaled."""
     multiplier = 1.0 / SCALE_FACTOR
 
     while not stop_event.is_set():

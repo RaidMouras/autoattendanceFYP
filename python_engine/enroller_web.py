@@ -1,8 +1,3 @@
-"""
-enroller_web.py - Optimized for Speed & Accuracy.
-- Uses "The Quarter-Size Trick" to speed up CNN detection by ~10x.
-- Checks for GPU support at startup.
-"""
 import sys
 import ctypes
 import cv2
@@ -33,7 +28,6 @@ module_code = sys.argv[4]
 camera_index = int(sys.argv[5]) if len(sys.argv) > 5 else 0
 
 def bring_window_to_front():
-    """On Windows, bring the OpenCV window to foreground so keypresses work."""
     if sys.platform == 'win32':
         try:
             user32 = ctypes.windll.user32
@@ -45,7 +39,6 @@ def bring_window_to_front():
             pass
 
 def save_encoding_to_db(s_id, encoding):
-    """Save a single face encoding to Face_Encodings table."""
     conn = create_db_connection()
     if conn is None:
         return
@@ -62,7 +55,6 @@ def save_encoding_to_db(s_id, encoding):
         conn.close()
 
 def ensure_student_exists(s_id, f_name, l_name):
-    """Create student record if it doesn't exist."""
     conn = create_db_connection()
     if not conn:
         return False
@@ -84,7 +76,6 @@ def ensure_student_exists(s_id, f_name, l_name):
         return False
 
 def enroll_in_module(s_id, mod_code):
-    """Link student to module in enrollment table."""
     conn = create_db_connection()
     if not conn:
         return
