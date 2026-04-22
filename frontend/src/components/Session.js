@@ -149,7 +149,7 @@ function Session() {
     };
 
     const handleRemoveStudent = async (studentId) => {
-        if (!window.confirm(`Are you sure you want to remove Student ${studentId}? This deletes ALL their data (Enrollment, Attendance, Face Scans).`)) {
+        if (!window.confirm(`Remove Student ${studentId} from ${moduleCode}? This unenrols them and clears their attendance logs for this module only.`)) {
             return;
         }
         try {

@@ -156,7 +156,7 @@ const AdminDashboard = () => {
             <form onSubmit={handleAddLecturer}>
               <div className="form-group"><label>Full Name</label><input type="text" value={newName} onChange={e=>setNewName(e.target.value)} required /></div>
               <div className="form-group"><label>Email</label><input type="email" value={newEmail} onChange={e=>setNewEmail(e.target.value)} required /></div>
-              <div className="form-group"><label>Password</label><input type="text" value={newPassword} onChange={e=>setNewPassword(e.target.value)} required /></div>
+              <div className="form-group"><label>Password</label><input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} required /></div>
               <button type="submit" className="submit-btn">Create Account</button>
             </form>
           </div>

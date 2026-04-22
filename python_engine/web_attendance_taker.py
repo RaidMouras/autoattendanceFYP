@@ -13,6 +13,7 @@ import sys
 import time
 import cv2
 import face_recognition
+import numpy as np
 import pickle
 import threading
 import queue
@@ -169,12 +170,14 @@ def ai_process_fn(known_encodings, known_ids, frame_queue, result_queue, stop_ev
             bottom = int(bottom * multiplier)
             left   = int(left   * multiplier)
 
-            matches = face_recognition.compare_faces(known_encodings, enc, tolerance=TOLERANCE)
             name, color = "Unknown", (0, 0, 255)
-            if True in matches:
-                student_id = known_ids[matches.index(True)]
-                name, color = str(student_id), (0, 255, 0)
-                recognized_ids.append(student_id)
+            if known_encodings:
+                distances  = face_recognition.face_distance(known_encodings, enc)
+                best_idx   = int(np.argmin(distances))
+                if distances[best_idx] <= TOLERANCE:
+                    student_id = known_ids[best_idx]
+                    name, color = str(student_id), (0, 255, 0)
+                    recognized_ids.append(student_id)
 
             boxes.append((left, top, right, bottom, name, color))
 
