@@ -94,4 +94,16 @@ router.delete('/delete-module/:moduleCode', async (req, res) => {
   }
 });
 
+router.post('/reset-password/:userId', async (req, res) => {
+  try {
+    const hashedPassword = await bcrypt.hash('password123', 10);
+    await db.query('UPDATE users SET Password_Hash = ? WHERE User_ID = ?', [hashedPassword, req.params.userId]);
+    console.log(`Reset password for User ID: ${req.params.userId}`);
+    res.json({ success: true, message: 'Password reset to password123' });
+  } catch (err) {
+    console.error("Error resetting password:", err);
+    res.status(500).json({ message: 'Database error resetting password' });
+  }
+});
+
 module.exports = router;

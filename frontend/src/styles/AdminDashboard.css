@@ -29,23 +29,146 @@ body {
     font-weight: 300;
 }
 
-.admin-logout-btn {
+.admin-profile-wrapper {
     position: absolute;
     right: 20px;
     top: 50%;
     transform: translateY(-50%);
-    background-color: #d9534f;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: background 0.2s;
 }
 
-.admin-logout-btn:hover {
-    background-color: #c9302c;
+.admin-profile-icon-btn {
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.admin-icon-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    transition: box-shadow 0.2s;
+}
+
+.admin-profile-icon-btn:hover .admin-icon-logo {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.profile-popup {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 180px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e2e8f0;
+    padding: 0.5rem 0;
+    z-index: 200;
+}
+
+.profile-popup-item {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 0.875rem;
+    color: #334155;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.profile-popup-item:hover {
+    background-color: #f0f4f0;
+    color: #1B3632;
+}
+
+.profile-logout {
+    color: #b91c1c;
+    border-top: 1px solid #e2e8f0;
+    margin-top: 0.25rem;
+    padding-top: 0.5rem;
+}
+
+.profile-logout:hover {
+    background-color: #fef2f2;
+    color: #991b1b;
+}
+
+.profile-error {
+    font-size: 0.75rem;
+    color: #b91c1c;
+    padding: 0.5rem 1rem;
+    background: #fef2f2;
+    margin: 0 0 0.5rem 0;
+    border-radius: 4px;
+}
+
+.profile-form {
+    padding: 0 1rem 0.5rem;
+}
+
+.profile-input {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8125rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    box-sizing: border-box;
+}
+
+.profile-input:focus {
+    outline: none;
+    border-color: #1B3632;
+}
+
+.input-error {
+    border-color: #b91c1c !important;
+}
+
+.profile-form-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.profile-save-btn {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background: #1B3632;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.profile-save-btn:hover {
+    background: #2a524b;
+}
+
+.profile-cancel-btn {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background: #e2e8f0;
+    color: #334155;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.profile-cancel-btn:hover {
+    background: #cbd5e1;
 }
 
 .list-section {
@@ -62,6 +185,21 @@ body {
     margin-bottom: 20px;
     border-bottom: 2px solid #f0f0f0;
     padding-bottom: 10px;
+    gap: 16px;
+}
+
+.search-input {
+    padding: 7px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.9em;
+    width: 220px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-input:focus {
+    border-color: #1B3632;
 }
 
 .lecturer-item {
@@ -183,12 +321,29 @@ body {
     cursor: pointer;
     font-size: 0.9em;
     font-weight: bold;
-    margin-right: 10px;
+    margin-right: 8px;
     transition: background 0.2s;
 }
 
 .modules-btn:hover {
     background-color: #0056b3;
+}
+
+.reset-btn {
+    background-color: #f0ad4e;
+    color: white;
+    border: none;
+    padding: 9.5px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+    margin-right: 8px;
+    transition: background 0.2s;
+}
+
+.reset-btn:hover {
+    background-color: #ec971f;
 }
 
 .module-list {

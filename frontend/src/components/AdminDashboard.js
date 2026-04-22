@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import '../styles/AdminDashboard.css';
+import icon from '../images/icon.png';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const popupRef = useRef(null);
+  const iconRef = useRef(null);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
   const [lecturers, setLecturers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newName, setNewName] = useState('');
@@ -24,9 +23,22 @@ const AdminDashboard = () => {
 
   const [modCode, setModCode] = useState('');
   const [modName, setModName] = useState('');
-
   const [semNumber, setSemNumber] = useState('Semester 1');
   const [acadYear, setAcadYear] = useState('2025/26');
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [errorField, setErrorField] = useState('');
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   const fetchLecturers = async () => {
     try {
@@ -40,6 +52,61 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchLecturers();
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileOpen && popupRef.current && !popupRef.current.contains(e.target) && iconRef.current && !iconRef.current.contains(e.target)) {
+        setProfileOpen(false);
+        setChangePasswordOpen(false);
+        setProfileError('');
+        setErrorField('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [profileOpen]);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setProfileError('');
+    setErrorField('');
+
+    if (newPwd !== confirmPwd) {
+      setProfileError('New passwords do not match');
+      return;
+    }
+    if (!newPwd || newPwd.length < 4) {
+      setProfileError('Password must be at least 4 characters');
+      return;
+    }
+
+    try {
+      await api.patch('/auth/profile/password', {
+        currentPassword,
+        newPassword: newPwd,
+        confirmPassword: confirmPwd
+      });
+      setChangePasswordOpen(false);
+      setCurrentPassword('');
+      setNewPwd('');
+      setConfirmPwd('');
+      alert('Password updated successfully');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to update password';
+      if (msg.toLowerCase().includes('current')) setErrorField('current');
+      setProfileError(msg);
+    }
+  };
+
+  const handleResetPassword = async (userId, name) => {
+    if (!window.confirm(`Reset ${name}'s password to "password123"?`)) return;
+    try {
+      await api.post(`/admin/reset-password/${userId}`);
+      alert(`Password for ${name} has been reset to "password123".`);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to reset password');
+    }
+  };
 
   const handleDeleteLecturer = async (userId) => {
     if (!window.confirm("Are you sure? This will delete the user AND their modules.")) return;
@@ -67,7 +134,6 @@ const AdminDashboard = () => {
   const openModuleModal = async (lecturer) => {
     setSelectedLecturer(lecturer);
     setShowModuleModal(true);
-
     try {
       const response = await api.get(`/admin/modules/${lecturer.User_ID}`);
       setLecturerModules(response.data);
@@ -79,9 +145,7 @@ const AdminDashboard = () => {
   const handleAddModule = async (e) => {
     e.preventDefault();
     if (!selectedLecturer) return;
-
     const fullSemester = `${semNumber} ${acadYear}`;
-
     try {
       await api.post('/admin/add-module', {
         userId: selectedLecturer.User_ID,
@@ -89,13 +153,10 @@ const AdminDashboard = () => {
         name: modName,
         semester: fullSemester
       });
-
       setModCode('');
       setModName('');
-
       const response = await api.get(`/admin/modules/${selectedLecturer.User_ID}`);
       setLecturerModules(response.data);
-
     } catch (err) {
       alert("Failed to add module. Code might be a duplicate.");
     }
@@ -103,7 +164,6 @@ const AdminDashboard = () => {
 
   const handleDeleteModule = async (moduleCode) => {
     if(!window.confirm(`Are you sure you want to remove ${moduleCode}?`)) return;
-
     try {
       await api.delete(`/admin/delete-module/${moduleCode}`);
       const response = await api.get(`/admin/modules/${selectedLecturer.User_ID}`);
@@ -113,27 +173,109 @@ const AdminDashboard = () => {
     }
   };
 
+  const filteredLecturers = lecturers.filter(l =>
+    l.Name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    l.Email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="admin-container">
       <header className="admin-header">
         <h1>Admin Dashboard</h1>
-        <button className="admin-logout-btn" onClick={handleLogout}>Logout</button>
+
+        <div className="admin-profile-wrapper">
+          <button
+            ref={iconRef}
+            type="button"
+            className="admin-profile-icon-btn"
+            onClick={() => setProfileOpen(!profileOpen)}
+            aria-label="Profile menu"
+          >
+            <img src={icon} alt="Profile" className="admin-icon-logo" />
+          </button>
+
+          {profileOpen && (
+            <div ref={popupRef} className="profile-popup">
+              {profileError && <div className="profile-error">{profileError}</div>}
+
+              {!changePasswordOpen && (
+                <>
+                  <button type="button" className="profile-popup-item" onClick={() => { setChangePasswordOpen(true); setProfileError(''); setErrorField(''); }}>
+                    Change password
+                  </button>
+                  <button type="button" className="profile-popup-item profile-logout" onClick={handleLogout}>
+                    Log out
+                  </button>
+                </>
+              )}
+
+              {changePasswordOpen && (
+                <form className="profile-form" onSubmit={handleChangePassword}>
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => { setCurrentPassword(e.target.value); if (errorField === 'current') setErrorField(''); }}
+                    placeholder="Current password"
+                    className={`profile-input ${errorField === 'current' ? 'input-error' : ''}`}
+                  />
+                  <input
+                    type="password"
+                    value={newPwd}
+                    onChange={(e) => setNewPwd(e.target.value)}
+                    placeholder="New password"
+                    className="profile-input"
+                  />
+                  <input
+                    type="password"
+                    value={confirmPwd}
+                    onChange={(e) => setConfirmPwd(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="profile-input"
+                  />
+                  <div className="profile-form-actions">
+                    <button type="submit" className="profile-save-btn">Update</button>
+                    <button type="button" className="profile-cancel-btn" onClick={() => {
+                      setChangePasswordOpen(false);
+                      setCurrentPassword('');
+                      setNewPwd('');
+                      setConfirmPwd('');
+                      setProfileError('');
+                      setErrorField('');
+                    }}>Cancel</button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="list-section">
-        <div className="list-header"><h2>Lecturer List</h2></div>
+        <div className="list-header">
+          <h2>Lecturer List</h2>
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search lecturers..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+        </div>
 
         <div className="lecturers-grid">
-          {lecturers.map((lecturer) => (
+          {filteredLecturers.map((lecturer) => (
              <div key={lecturer.User_ID} className="lecturer-item">
                <div style={{display: 'flex', flexDirection: 'column'}}>
                  <span style={{ fontWeight: 'bold' }}>{lecturer.Name}</span>
                  <span style={{ color: '#666', fontSize: '0.9em' }}>{lecturer.Email}</span>
                </div>
 
-               <div>
+               <div style={{display: 'flex', alignItems: 'center'}}>
                    <button className="modules-btn" onClick={() => openModuleModal(lecturer)}>
                       Modules 📚
+                   </button>
+                   <button className="reset-btn" onClick={() => handleResetPassword(lecturer.User_ID, lecturer.Name)}>
+                      Reset Password
                    </button>
                    <button className="delete-btn" onClick={() => handleDeleteLecturer(lecturer.User_ID)}>
                       Delete 🗑️
@@ -141,6 +283,9 @@ const AdminDashboard = () => {
                </div>
              </div>
           ))}
+          {filteredLecturers.length === 0 && (
+            <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No lecturers found.</p>
+          )}
         </div>
 
         <div style={{ marginTop: '20px', textAlign: 'center' }}>
