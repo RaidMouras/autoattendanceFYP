@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
-import '../styles/Dashboard.css'; // Shared header styles
-import '../styles/Session.css';   // Specific session styles
+import '../styles/Dashboard.css';
+import '../styles/Session.css';
 import logo from '../images/ul-logo-home.png';
 import icon from '../images/icon.png';
 
@@ -12,14 +12,11 @@ function Session() {
     const popupRef = useRef(null);
     const iconRef = useRef(null);
 
-    // --- STATE MANAGEMENT ---
-    // 1. Data State
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [userName, setUserName] = useState('User');
     const [userId, setUserId] = useState(null);
 
-    // 2. Profile Popup State
     const [profileOpen, setProfileOpen] = useState(false);
     const [editNameOpen, setEditNameOpen] = useState(false);
     const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -30,26 +27,26 @@ function Session() {
     const [profileError, setProfileError] = useState('');
     const [errorField, setErrorField] = useState('');
 
-    // 3. Enrollment Modal State
     const [showEnrollModal, setShowEnrollModal] = useState(false);
+    const [enrollMode, setEnrollMode] = useState('scratch');
     const [newStudent, setNewStudent] = useState({ id: '', first: '', last: '' });
-    const [isScanning, setIsScanning] = useState(false); // Tracks if Python camera is active
+    const [isScanning, setIsScanning] = useState(false);
     const [enrollCamera, setEnrollCamera] = useState(0);
+    const [availableStudents, setAvailableStudents] = useState([]);
+    const [availableLoading, setAvailableLoading] = useState(false);
+    const [existingSearch, setExistingSearch] = useState('');
+    const [addingExistingId, setAddingExistingId] = useState(null);
 
-    // 4. Session Start / Countdown State
     const [showCameraModal, setShowCameraModal] = useState(false);
     const [availableCameras, setAvailableCameras] = useState([]);
-    const [cameraMode, setCameraMode] = useState('all'); // 'all' | 'single'
+    const [cameraMode, setCameraMode] = useState('all');
     const [selectedCamera, setSelectedCamera] = useState(null);
     const [showSessionModal, setShowSessionModal] = useState(false);
-    const [sessionDuration, setSessionDuration] = useState(0); // 0 = Manual, otherwise minutes
-    const [sessionCameras, setSessionCameras] = useState(null); // null = all
-    const [countdown, setCountdown] = useState(null); // null = hidden, 3, 2, 1, 0
+    const [sessionDuration, setSessionDuration] = useState(0);
+    const [sessionCameras, setSessionCameras] = useState(null);
+    const [countdown, setCountdown] = useState(null);
     const [sessionRunning, setSessionRunning] = useState(false);
 
-    // --- EFFECTS ---
-
-    // Fetch User on Load
     useEffect(() => {
         const userString = localStorage.getItem('user');
         if (userString) {
@@ -59,7 +56,6 @@ function Session() {
         }
     }, []);
 
-    // Fetch Students on Load (Using the new organized route)
     const fetchStudents = async () => {
         try {
             const response = await api.get(`/class-list/${moduleCode}`);
@@ -75,14 +71,12 @@ function Session() {
         fetchStudents();
     }, [moduleCode]);
 
-    // Check if a session is already running for this module
     useEffect(() => {
         api.get(`/session/status/${moduleCode}`)
             .then(res => setSessionRunning(res.data.running))
             .catch(() => {});
     }, [moduleCode]);
 
-    // Click Outside to Close Profile
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (profileOpen && popupRef.current && !popupRef.current.contains(e.target) && iconRef.current && !iconRef.current.contains(e.target)) {
@@ -97,7 +91,6 @@ function Session() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [profileOpen]);
 
-    // Countdown Timer Effect
     useEffect(() => {
         if (countdown === null) return;
 
@@ -105,14 +98,12 @@ function Session() {
             const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
             return () => clearTimeout(timer);
         } else if (countdown === 0) {
-            // Time to launch!
             triggerPythonSession();
             setCountdown(null);
         }
     }, [countdown]);
 
 
-    // --- PROFILE HANDLERS ---
     const handleEditName = async (e) => {
         e.preventDefault();
         setProfileError('');
@@ -157,15 +148,12 @@ function Session() {
         navigate('/');
     };
 
-    // --- CLASS MANAGEMENT HANDLERS ---
-
     const handleRemoveStudent = async (studentId) => {
         if (!window.confirm(`Are you sure you want to remove Student ${studentId}? This deletes ALL their data (Enrollment, Attendance, Face Scans).`)) {
             return;
         }
         try {
             await api.delete(`/class-list/${moduleCode}/${studentId}`);
-            // Remove from local state immediately
             setStudents(students.filter(s => s.Student_ID !== studentId));
         } catch (err) {
             alert("Failed to remove student. See console.");
@@ -173,7 +161,19 @@ function Session() {
         }
     };
 
-    // --- ENROLLMENT HANDLERS ---
+    const fetchAvailableStudents = async () => {
+        setAvailableLoading(true);
+        try {
+            const res = await api.get(`/class-list/${moduleCode}/available`);
+            setAvailableStudents(res.data);
+        } catch (err) {
+            console.error("Failed to load available students", err);
+            setAvailableStudents([]);
+        } finally {
+            setAvailableLoading(false);
+        }
+    };
+
     const handleEnroll = async () => {
         let cameras = availableCameras;
         if (cameras.length === 0) {
@@ -186,7 +186,24 @@ function Session() {
             }
         }
         setEnrollCamera(cameras.length > 0 ? cameras[0] : 0);
+        setEnrollMode('scratch');
+        setExistingSearch('');
         setShowEnrollModal(true);
+        fetchAvailableStudents();
+    };
+
+    const handleAddExistingStudent = async (studentId) => {
+        setAddingExistingId(studentId);
+        try {
+            await api.post(`/class-list/${moduleCode}/add-existing`, { studentId });
+            setAvailableStudents(prev => prev.filter(s => s.Student_ID !== studentId));
+            fetchStudents();
+        } catch (err) {
+            const msg = err.response?.data?.message || 'Failed to add student.';
+            alert(msg);
+        } finally {
+            setAddingExistingId(null);
+        }
     };
 
     const submitEnrollment = async (e) => {
@@ -205,7 +222,7 @@ function Session() {
             setIsScanning(false);
             setShowEnrollModal(false);
             setNewStudent({ id: '', first: '', last: '' });
-            fetchStudents(); // Refresh list
+            fetchStudents();
 
         } catch (err) {
             console.error(err);
@@ -215,7 +232,6 @@ function Session() {
         }
     };
 
-    // --- SESSION START HANDLERS ---
     const openSessionModal = async () => {
         try {
             const res = await api.get('/session/cameras');
@@ -238,7 +254,7 @@ function Session() {
     const startSessionSequence = (duration) => {
         setSessionDuration(duration);
         setShowSessionModal(false);
-        setCountdown(3); // Start 3, 2, 1...
+        setCountdown(3);
     };
 
     const triggerPythonSession = async () => {
@@ -272,7 +288,6 @@ function Session() {
 
 
 
-    // --- RENDER ---
     return (
         <>
             <header className="home-header">
@@ -337,13 +352,11 @@ function Session() {
 
             <main className="main-content session-main">
 
-                {/* HEADER */}
                 <div className="session-header">
                     <h1 className="module-title">{moduleCode}</h1>
                     <p className="module-subtitle">Classroom Command Center</p>
                 </div>
 
-                {/* CONTROLS */}
                 <div className="control-panel">
                     <button className="cmd-btn blue" onClick={handleEnroll} disabled={sessionRunning}>
                         <span>👤</span> Enroll Student
@@ -359,7 +372,6 @@ function Session() {
                     )}
                 </div>
 
-                {/* STUDENT LIST */}
                 <div className="student-list-container">
                     <h2 className="list-header">
                         Enrolled Students ({students.length})
@@ -382,7 +394,7 @@ function Session() {
                                     <th>First Name</th>
                                     <th>Last Name</th>
                                     <th>Status</th>
-                                    <th>Action</th> 
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -393,7 +405,7 @@ function Session() {
                                         <td>{student.Last_Name}</td>
                                         <td><span className="status-badge">Registered</span></td>
                                         <td>
-                                            <button 
+                                            <button
                                                 onClick={() => handleRemoveStudent(student.Student_ID)}
                                                 className="delete-student-btn"
                                                 title="Remove from class"
@@ -408,13 +420,95 @@ function Session() {
                     )}
                 </div>
 
-                {/* --- 1. ENROLLMENT MODAL --- */}
                 {showEnrollModal && (
                     <div className="modal-overlay">
                         <div className="modal-content">
-                            <h2 className="modal-title">Enroll New Student</h2>
+                            <h2 className="modal-title">Enroll Student</h2>
                             <p className="modal-module">Module: <strong>{moduleCode}</strong></p>
 
+                            {!isScanning && (
+                                <div className="enroll-mode-tabs">
+                                    <button
+                                        type="button"
+                                        className={`enroll-mode-tab ${enrollMode === 'scratch' ? 'active' : ''}`}
+                                        onClick={() => setEnrollMode('scratch')}
+                                    >
+                                        Enroll from Scratch
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`enroll-mode-tab ${enrollMode === 'existing' ? 'active' : ''}`}
+                                        onClick={() => setEnrollMode('existing')}
+                                    >
+                                        Add Existing Student
+                                    </button>
+                                </div>
+                            )}
+
+                            {enrollMode === 'existing' && !isScanning ? (
+                                <div>
+                                    <div className="modal-field">
+                                        <input
+                                            type="text"
+                                            className="modal-input"
+                                            placeholder="Search by name or ID..."
+                                            value={existingSearch}
+                                            onChange={e => setExistingSearch(e.target.value)}
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    <div className="existing-student-list">
+                                        {availableLoading ? (
+                                            <p className="session-loading">Loading students...</p>
+                                        ) : availableStudents.length === 0 ? (
+                                            <p className="existing-empty">
+                                                No previously enrolled students available.
+                                            </p>
+                                        ) : (() => {
+                                            const q = existingSearch.trim().toLowerCase();
+                                            const filtered = q === ''
+                                                ? availableStudents
+                                                : availableStudents.filter(s => {
+                                                    const full = `${s.First_Name || ''} ${s.Last_Name || ''}`.toLowerCase();
+                                                    return (
+                                                        String(s.Student_ID).toLowerCase().includes(q) ||
+                                                        full.includes(q)
+                                                    );
+                                                });
+                                            if (filtered.length === 0) {
+                                                return <p className="existing-empty">No matching students.</p>;
+                                            }
+                                            return filtered.map(s => (
+                                                <div key={s.Student_ID} className="existing-student-row">
+                                                    <div className="existing-student-info">
+                                                        <span className="existing-student-name">
+                                                            {s.First_Name} {s.Last_Name}
+                                                        </span>
+                                                        <span className="existing-student-id">
+                                                            ID: {s.Student_ID}
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        className="existing-add-btn"
+                                                        disabled={addingExistingId === s.Student_ID}
+                                                        onClick={() => handleAddExistingStudent(s.Student_ID)}
+                                                    >
+                                                        {addingExistingId === s.Student_ID ? 'Adding...' : 'Add'}
+                                                    </button>
+                                                </div>
+                                            ));
+                                        })()}
+                                    </div>
+
+                                    <div className="modal-actions">
+                                        <button type="button" onClick={() => setShowEnrollModal(false)} className="modal-cancel-btn">
+                                            Close
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
                             <form onSubmit={submitEnrollment}>
                                 <div className="modal-field">
                                     <label>Student ID</label>
@@ -484,11 +578,11 @@ function Session() {
                                     </button>
                                 </div>
                             </form>
+                            )}
                         </div>
                     </div>
                 )}
 
-                {/* --- 2. CAMERA SELECTION MODAL --- */}
                 {showCameraModal && (
                     <div className="modal-overlay">
                         <div className="modal-content" style={{textAlign: 'center'}}>
@@ -549,7 +643,6 @@ function Session() {
                     </div>
                 )}
 
-                {/* --- 3. SESSION DURATION MODAL --- */}
                 {showSessionModal && (
                     <div className="modal-overlay">
                         <div className="modal-content" style={{textAlign: 'center'}}>
@@ -578,7 +671,6 @@ function Session() {
                     </div>
                 )}
 
-                {/* --- 4. COUNTDOWN OVERLAY --- */}
                 {countdown !== null && (
                     <div className="countdown-overlay">
                         <div className="countdown-number">

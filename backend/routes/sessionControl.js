@@ -4,12 +4,9 @@ const { spawn, execFile } = require('child_process');
 const router = express.Router();
 const db = require('../db');
 
-// Tracks running sessions: moduleCode -> child process
 const activeSessions = new Map();
-// Modules currently being torn down — blocks new starts during the async stop window
 const stoppingSessions = new Set();
 
-// GET /api/session/cameras — detect available camera indices (0–5)
 router.get('/cameras', (req, res) => {
     const pythonPath = process.env.PYTHON_PATH || 'python';
     const script = `
@@ -39,12 +36,10 @@ print(json.dumps(available))
     proc.on('error', () => res.json({ cameras: [] }));
 });
 
-// GET /api/session/status/:moduleCode
 router.get('/status/:moduleCode', (req, res) => {
     res.json({ running: activeSessions.has(req.params.moduleCode) });
 });
 
-// POST /api/session/start
 router.post('/start', (req, res) => {
     const { moduleCode, duration, cameras } = req.body;
 
@@ -60,7 +55,6 @@ router.post('/start', (req, res) => {
     const scriptPath = path.join(__dirname, '..', '..', 'python_engine', 'web_attendance_taker.py');
     const cwd = path.join(__dirname, '..', '..', 'python_engine');
 
-    // cameras: array of indices or null/undefined (= all)
     const cameraArg = (cameras && cameras.length > 0) ? cameras.join(',') : 'all';
     const pythonProcess = spawn(pythonPath, [scriptPath, moduleCode, duration, cameraArg], { cwd });
 
@@ -75,7 +69,6 @@ router.post('/start', (req, res) => {
         console.error(`[PYTHON ERR]: ${data}`);
     });
 
-    // Clean up the map automatically when the process exits on its own (Q key / timer)
     pythonProcess.on('close', (code) => {
         activeSessions.delete(moduleCode);
         console.log(`[SESSION] ${moduleCode} process exited with code ${code}`);
@@ -84,7 +77,6 @@ router.post('/start', (req, res) => {
     res.json({ success: true, message: 'Session started successfully' });
 });
 
-// POST /api/session/stop/:moduleCode
 router.post('/stop/:moduleCode', async (req, res) => {
     const { moduleCode } = req.params;
     const proc = activeSessions.get(moduleCode);
@@ -93,13 +85,8 @@ router.post('/stop/:moduleCode', async (req, res) => {
         return res.status(404).json({ message: 'No active session found for this module' });
     }
 
-    // Block any new start for this module while the async teardown is in progress.
-    // Without this guard a start request arriving during the await below would see
-    // activeSessions empty (if the close event fired first) and spawn a duplicate.
     stoppingSessions.add(moduleCode);
 
-    // On Windows, SIGTERM is a hard kill — Python's finally block never runs.
-    // Write the real End_Time here before killing the process.
     try {
         await db.query(
             'UPDATE sessions SET End_Time = NOW(), is_active = 0 WHERE Module_Code = ? AND is_active = 1',
@@ -109,9 +96,6 @@ router.post('/stop/:moduleCode', async (req, res) => {
         console.error('[SESSION] Failed to update End_Time on stop:', e);
     }
 
-    // Node's proc.kill on Windows only terminates the direct child, leaving
-    // multiprocessing workers (camera, DB) orphaned. Use taskkill /T to walk
-    // the process tree.
     if (process.platform === 'win32') {
         execFile('taskkill', ['/pid', String(proc.pid), '/T', '/F'], (err) => {
             if (err) console.error('[SESSION] taskkill failed:', err);
@@ -120,8 +104,6 @@ router.post('/stop/:moduleCode', async (req, res) => {
         proc.kill('SIGTERM');
     }
 
-    // Only evict the entry we originally grabbed — a new session may have been
-    // registered under the same key if the process exited naturally mid-await.
     if (activeSessions.get(moduleCode) === proc) {
         activeSessions.delete(moduleCode);
     }

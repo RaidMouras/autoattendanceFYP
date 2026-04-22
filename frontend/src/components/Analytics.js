@@ -7,7 +7,7 @@ import api from '../api';
 import '../styles/Dashboard.css';
 import '../styles/Analytics.css';
 import logo from '../images/ul-logo-home.png';
-import icon from '../images/icon.png'; // Added profile icon import
+import icon from '../images/icon.png';
 
 const getWeekRange = (date) => {
     const d = new Date(date);
@@ -79,13 +79,11 @@ const DateFilterBar = ({ filterMode, setFilterMode, selectedDate, setSelectedDat
 };
 
 const Analytics = () => {
-    // route now passes moduleCode (not sessionId)
     const { moduleCode } = useParams();
     const navigate = useNavigate();
     const popupRef = useRef(null);
     const iconRef = useRef(null);
 
-    // --- TAB & DATA STATE ---
     const [activeTab, setActiveTab] = useState('class');
     const [moduleData, setModuleData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -94,14 +92,12 @@ const Analytics = () => {
     const [filterMode, setFilterMode] = useState('semester');
     const [selectedDate, setSelectedDate] = useState(null);
 
-    // --- PROFILE STATE ---
     const [userName, setUserName] = useState('User');
     const [userId, setUserId] = useState(null);
     const [profileOpen, setProfileOpen] = useState(false);
     const [editNameOpen, setEditNameOpen] = useState(false);
     const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
-    // Profile Form Values
     const [editNameValue, setEditNameValue] = useState('');
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -109,8 +105,6 @@ const Analytics = () => {
     const [profileError, setProfileError] = useState('');
     const [errorField, setErrorField] = useState('');
 
-    // --- EFFECTS ---
-    // Load User Data
     useEffect(() => {
         const userString = localStorage.getItem('user');
         if (userString) {
@@ -120,22 +114,18 @@ const Analytics = () => {
         }
     }, []);
 
-    // Fetch available session dates for the calendar filter
     useEffect(() => {
         api.get(`/analytics/session-dates/${moduleCode}`)
             .then(res => setSessionDates(res.data.map(d => new Date(d + 'T00:00:00'))))
             .catch(() => {});
     }, [moduleCode]);
 
-    // Fetch Analytics Data (Using Session.js Logic!)
     useEffect(() => {
         const fetchAnalytics = async () => {
             try {
-                // 1. ALWAYS fetch the class list first, exactly like Session.js does!
                 const classRes = await api.get(`/class-list/${moduleCode}`);
                 const enrolledStudents = classRes.data;
 
-                // 2. Set up a base data structure so students NEVER disappear
                 let data = {
                     moduleCode: moduleCode,
                     totalSessions: 0,
@@ -150,11 +140,9 @@ const Analytics = () => {
                     }))
                 };
 
-                // 3. Now quietly try to fetch the analytics and merge them if they exist
                 const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                 try {
                     if (filterMode === 'day' && selectedDate) {
-                        // Use per-session endpoint to get Present/Late/Left Early/Absent
                         const dateStr = fmtDate(selectedDate);
                         const sessionIdsRes = await api.get(`/analytics/sessions-by-date/${moduleCode}/${dateStr}`);
                         const sessionIds = sessionIdsRes.data;
@@ -164,7 +152,6 @@ const Analytics = () => {
                                 sessionIds.map(id => api.get(`/analytics/session/${id}`))
                             );
 
-                            // Build a map of student id -> session stats
                             const studentMap = {};
                             sessionResults.forEach(res => {
                                 res.data.forEach(s => { studentMap[s.id] = s; });
@@ -179,7 +166,6 @@ const Analytics = () => {
                             });
                         }
                     } else {
-                        // Semester or week — use module-level engagement endpoint
                         let params = '';
                         if (filterMode === 'week' && selectedDate) {
                             const { start, end } = getWeekRange(selectedDate);
@@ -198,7 +184,6 @@ const Analytics = () => {
                     console.error("[Analytics fetch error]", analyticsErr?.response?.status, analyticsErr?.response?.data || analyticsErr?.message);
                 }
 
-                // 4. Save the combined data to state
                 setModuleData(data);
 
             } catch (err) {
@@ -210,7 +195,6 @@ const Analytics = () => {
         fetchAnalytics();
     }, [moduleCode, filterMode, selectedDate]);
 
-    // Handle clicking outside the profile popup to close it
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (profileOpen && popupRef.current && !popupRef.current.contains(e.target) && iconRef.current && !iconRef.current.contains(e.target)) {
@@ -225,7 +209,6 @@ const Analytics = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [profileOpen]);
 
-    // --- PROFILE HANDLERS ---
     const handleEditName = async (e) => {
         e.preventDefault();
         setProfileError('');
@@ -270,7 +253,6 @@ const Analytics = () => {
         navigate('/');
     };
 
-    // --- CSV EXPORT ---
     const exportToCSV = () => {
         const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -308,7 +290,6 @@ const Analytics = () => {
         URL.revokeObjectURL(url);
     };
 
-    // --- RENDER HELPERS ---
     if (loading) {
         return (
             <main className="main-content" style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -524,7 +505,6 @@ const Analytics = () => {
                 </Link>
 
                 <nav>
-                    {/* New Home Link */}
                     <Link to="/Dashboard" className="nav-item" style={{ textDecoration: 'none' }}>
                         Home
                     </Link>
@@ -560,7 +540,6 @@ const Analytics = () => {
                     </button>
                 </nav>
 
-                {/* Profile Dropdown Menu */}
                 <div className="profile-wrapper">
                     <button ref={iconRef} type="button" className="profile-icon-btn" onClick={() => setProfileOpen(!profileOpen)} aria-label="Profile menu">
                         <img src={icon} alt="Profile" className="icon-logo" />
@@ -584,7 +563,6 @@ const Analytics = () => {
                                 </>
                             )}
 
-                            {/* Edit Name Form */}
                             {editNameOpen && (
                                 <form className="profile-form" onSubmit={handleEditName}>
                                     <input type="text" value={editNameValue} onChange={(e) => setEditNameValue(e.target.value)} placeholder="New name" className="profile-input" autoFocus />
@@ -595,7 +573,6 @@ const Analytics = () => {
                                 </form>
                             )}
 
-                            {/* Change Password Form */}
                             {changePasswordOpen && (
                                 <form className="profile-form" onSubmit={handleChangePassword}>
                                     <input type="password" value={currentPassword} onChange={(e) => { setCurrentPassword(e.target.value); if (errorField === 'current') setErrorField(''); }} placeholder="Current password" className={`profile-input ${errorField === 'current' ? 'input-error' : ''}`} />

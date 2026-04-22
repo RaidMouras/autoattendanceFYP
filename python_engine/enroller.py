@@ -13,15 +13,14 @@ def save_encoding_to_db(student_id, encoding):
     try:
         cursor = conn.cursor()
         encoding_blob = pickle.dumps(encoding)
-        
-        # INSERT into the NEW child table
+
         sql = "INSERT INTO Face_Encodings (student_id, face_encoding) VALUES (%s, %s)"
         val = (student_id, encoding_blob)
-        
+
         cursor.execute(sql, val)
         conn.commit()
         print(f"   --> Saved vector for {student_id}")
-        
+
     except mysql.connector.Error as err:
         print(f"Database Error: {err}")
     finally:
@@ -29,31 +28,27 @@ def save_encoding_to_db(student_id, encoding):
         conn.close()
 
 def register_student_multi_angle(student_id, first_name, last_name):
-    # 1. First, ensure the student exists in the parent table
     conn = create_db_connection()
     if conn:
         try:
             cursor = conn.cursor()
-            # Check if student exists
             cursor.execute("SELECT * FROM Students WHERE Student_ID = %s", (student_id,))
             result = cursor.fetchone()
-            
+
             if not result:
-                # Create the student record first (without encoding)
                 print(f"🆕 Creating record for {first_name} {last_name}...")
                 sql = "INSERT INTO Students (Student_ID, First_Name, Last_Name) VALUES (%s, %s, %s)"
                 cursor.execute(sql, (student_id, first_name, last_name))
                 conn.commit()
             else:
                 print(f"ℹ️  Adding more angles to existing student: {first_name} {last_name}")
-            
+
             cursor.close()
             conn.close()
         except mysql.connector.Error as err:
             print(f"❌ Database Error: {err}")
             return
 
-    # 2. Start Capture Loop
     video_capture = cv2.VideoCapture(0)
     print("\n--- MULTI-ANGLE ENROLLMENT ---")
     print(" We need 5 photos: Front, Left, Right, Up, Down.")
@@ -72,10 +67,9 @@ def register_student_multi_angle(student_id, first_name, last_name):
 
         if key == ord('s'):
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            # Using CNN (GPU) for highest accuracy during enrollment
+
             boxes = face_recognition.face_locations(rgb_frame, model="cnn")
-            
+
             if len(boxes) == 0:
                 print("⚠️ No face detected.")
             elif len(boxes) > 1:
@@ -108,16 +102,13 @@ def enroll_student_in_module(student_id, module_code):
             cursor.close()
             conn.close()
 
-# --- UPDATE THE BOTTOM SECTION ---
 if __name__ == "__main__":
     s_id = input("Enter Student ID: ")
     f_name = input("Enter First Name: ")
     l_name = input("Enter Last Name: ")
-    
-    # 1. Register Identity & Face
+
     register_student_multi_angle(s_id, f_name, l_name)
-    
-    # 2. Ask for Module to link them immediately
+
     link_mod = input("\nDo you want to enroll them in a module now? (y/n): ")
     if link_mod.lower() == 'y':
         mod_code = input("Enter Module Code (e.g. CS2323): ")

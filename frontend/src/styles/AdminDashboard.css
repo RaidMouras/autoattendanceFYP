@@ -1,4 +1,3 @@
-/* src/styles/AdminDashboard.css */
 body {
     background-color: #f4f4f4;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -7,7 +6,7 @@ body {
 
 .admin-container {
     padding: 20px;
-    padding-top: 80px; /* Space for header */
+    padding-top: 80px;
     max-width: 800px;
     margin: 0 auto;
 }
@@ -49,7 +48,6 @@ body {
     background-color: #c9302c;
 }
 
-/* --- LECTURER LIST STYLES --- */
 .list-section {
     background: white;
     padding: 20px;
@@ -96,7 +94,6 @@ body {
     background-color: #2a524b;
 }
 
-/* --- POPUP (MODAL) STYLES --- */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -162,7 +159,7 @@ body {
 }
 
 .delete-btn {
-    background-color: #d9534f; /* Danger Red */
+    background-color: #d9534f;
     color: white;
     border: none;
     padding: 8px 15px;
@@ -174,11 +171,11 @@ body {
 }
 
 .delete-btn:hover {
-    background-color: #c9302c; /* Darker Red on Hover */
+    background-color: #c9302c;
 }
 
 .modules-btn {
-    background-color: #007bff; /* Professional Blue */
+    background-color: #007bff;
     color: white;
     border: none;
     padding: 8px 15px;
@@ -186,7 +183,7 @@ body {
     cursor: pointer;
     font-size: 0.9em;
     font-weight: bold;
-    margin-right: 10px; /* Space between buttons */
+    margin-right: 10px;
     transition: background 0.2s;
 }
 
@@ -194,12 +191,11 @@ body {
     background-color: #0056b3;
 }
 
-/* Module List inside Modal */
 .module-list {
     margin-top: 20px;
     border-top: 1px solid #eee;
     max-height: 200px;
-    overflow-y: auto; /* Scroll if list is long */
+    overflow-y: auto;
 }
 
 .module-item {

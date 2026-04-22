@@ -1,10 +1,8 @@
-// backend/routes/studentEnroll.js
 const express = require('express');
 const path = require('path');
 const router = express.Router();
 const { spawn } = require('child_process');
 
-// POST /api/enroll/student
 router.post('/student', (req, res) => {
     const { id, firstName, lastName, moduleCode, cameraIndex } = req.body;
 

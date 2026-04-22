@@ -11,28 +11,23 @@ function Dashboard() {
   const popupRef = useRef(null);
   const iconRef = useRef(null);
 
-  // State
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('User');
   const [userId, setUserId] = useState(null);
 
-  // UI Toggles
   const [profileOpen, setProfileOpen] = useState(false);
   const [editNameOpen, setEditNameOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
-  // Form Values
   const [editNameValue, setEditNameValue] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Error Handling
   const [profileError, setProfileError] = useState('');
-  const [errorField, setErrorField] = useState(''); // Tracks which input to highlight red
+  const [errorField, setErrorField] = useState('');
 
-  // --- FETCH DATA ---
   useEffect(() => {
     const fetchModules = async () => {
       try {
@@ -59,7 +54,6 @@ function Dashboard() {
     fetchModules();
   }, [navigate]);
 
-  // Click outside to close popup
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (profileOpen && popupRef.current && !popupRef.current.contains(e.target) && iconRef.current && !iconRef.current.contains(e.target)) {
@@ -74,7 +68,6 @@ function Dashboard() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [profileOpen]);
 
-  // --- HANDLERS ---
   const handleEditName = async (e) => {
     e.preventDefault();
     setProfileError('');
@@ -83,7 +76,6 @@ function Dashboard() {
     try {
       const res = await api.patch('/auth/profile/name', { userId, name: editNameValue.trim() });
       setUserName(res.data.name);
-      // Update local storage so refresh doesn't revert name
       const currentUser = JSON.parse(localStorage.getItem('user'));
       localStorage.setItem('user', JSON.stringify({ ...currentUser, name: res.data.name }));
 
@@ -97,21 +89,18 @@ function Dashboard() {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setProfileError('');
-    setErrorField(''); // Reset red highlights
+    setErrorField('');
 
-    // 1. Frontend Check: Match
     if (newPassword !== confirmPassword) {
       setProfileError('New passwords do not match');
       return;
     }
-    // 2. Frontend Check: Length
     if (!newPassword || newPassword.length < 4) {
       setProfileError('Password must be at least 4 characters');
       return;
     }
 
     try {
-      // 3. Send all data to backend (including confirmPassword for safety)
       await api.patch('/auth/profile/password', {
         userId,
         currentPassword,
@@ -119,7 +108,6 @@ function Dashboard() {
         confirmPassword
       });
 
-      // Success
       setChangePasswordOpen(false);
       setCurrentPassword('');
       setNewPassword('');
@@ -133,7 +121,6 @@ function Dashboard() {
 
       setProfileError(msg);
 
-      // Highlight current password field in red when it's incorrect
       if (status === 401 || (msg && msg.toLowerCase().includes('current password'))) {
         setErrorField('current');
       }
@@ -186,7 +173,6 @@ function Dashboard() {
                 </>
               )}
 
-              {/* EDIT NAME FORM */}
               {editNameOpen && (
                 <form className="profile-form" onSubmit={handleEditName}>
                   <input
@@ -204,7 +190,6 @@ function Dashboard() {
                 </form>
               )}
 
-              {/* CHANGE PASSWORD FORM */}
               {changePasswordOpen && (
                 <form className="profile-form" onSubmit={handleChangePassword}>
                   <input
@@ -212,10 +197,9 @@ function Dashboard() {
                     value={currentPassword}
                     onChange={(e) => {
                       setCurrentPassword(e.target.value);
-                      if (errorField === 'current') setErrorField(''); // Clear red on type
+                      if (errorField === 'current') setErrorField('');
                     }}
                     placeholder="Current password"
-                    // CONDITIONAL CLASS: Turns red if errorField is 'current'
                     className={`profile-input ${errorField === 'current' ? 'input-error' : ''}`}
                   />
                   <input
@@ -253,7 +237,6 @@ function Dashboard() {
       <main className="main-content">
         <div id="top-of-home" className="welcome-text">Welcome, {userName}</div>
 
-        {/* --- MODULES SECTION --- */}
         <section className="modules-section">
           <div id="middle-of-home" className="section-title">My Modules</div>
 
@@ -280,7 +263,6 @@ function Dashboard() {
           )}
         </section>
 
-        {/* --- ANALYTICS SECTION --- */}
         <section className="modules-section">
           <div id="bottom-of-home" className="section-title">View Analytics</div>
 

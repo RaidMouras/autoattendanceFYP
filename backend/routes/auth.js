@@ -5,7 +5,6 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { verifyToken } = require('../middleware/authMiddleware');
 
-// --- LOGIN ROUTE ---
 router.post('/login', async (req, res) => {
     console.log("Login Request Received!");
 
@@ -48,7 +47,6 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// --- UPDATE NAME ---
 router.patch('/profile/name', verifyToken, async (req, res) => {
     const userId = req.user.user_id;
     const { name } = req.body;
@@ -66,7 +64,6 @@ router.patch('/profile/name', verifyToken, async (req, res) => {
     }
 });
 
-// --- CHANGE PASSWORD ---
 router.patch('/profile/password', verifyToken, async (req, res) => {
     const userId = req.user.user_id;
     const { currentPassword, newPassword, confirmPassword } = req.body;

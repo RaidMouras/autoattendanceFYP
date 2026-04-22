@@ -47,7 +47,6 @@
   margin-bottom: 20px;
 }
 
-/* To this: */
 .summary-card {
   flex: 1;
   background: #f4f4f9;
@@ -82,7 +81,6 @@
 
 .view-btn:hover { background: #0056b3; }
 
-/* Modal Styles */
 .analytics-modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -117,7 +115,6 @@
   box-sizing: border-box;
 }
 
-/* Date Filter Bar */
 .date-filter-bar {
   display: flex;
   align-items: center;
@@ -175,4 +172,3 @@
   font-size: 13px;
   font-style: italic;
 }
-

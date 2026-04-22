@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-// IMPORTS: Adjust these paths if your files are in different folders
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import AdminDashboard from './components/AdminDashboard';
@@ -17,7 +16,7 @@ function App() {
 
         <Route path="/login" element={<Login />} />
 
-<Route path="/Dashboard" element={<Dashboard />} />
+        <Route path="/Dashboard" element={<Dashboard />} />
 
         <Route path="/admin" element={<AdminDashboard />} />
 

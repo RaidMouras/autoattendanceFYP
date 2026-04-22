@@ -9,13 +9,11 @@ import cv2
 import face_recognition
 import pickle
 import numpy as np
-import dlib # Imported to check for GPU
+import dlib
 from db_connection import create_db_connection
 
 WINDOW_TITLE = 'Enrollment - Press S to Snap, Q to Quit'
 
-# --- 1. GPU CHECK ---
-# This will print immediately so you know if you are using the graphics card.
 try:
     using_cuda = dlib.DLIB_USE_CUDA
     print(f"[SYSTEM] Dlib using CUDA (GPU)? {using_cuda}", flush=True)
@@ -24,7 +22,6 @@ try:
 except:
     print("[SYSTEM] Could not verify CUDA status.", flush=True)
 
-# Parse args from Node.js
 if len(sys.argv) < 5:
     print("[ERROR] Missing arguments. Usage: python enroller_web.py <ID> <First> <Last> <Module> [cameraIndex]", flush=True)
     sys.exit(1)
@@ -108,7 +105,7 @@ def main():
         sys.exit(1)
 
     video_capture = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
-    
+
     if not video_capture.isOpened():
         print("[ERROR] Could not open webcam.", flush=True)
         sys.exit(1)
@@ -142,50 +139,37 @@ def main():
 
         if key == ord('s'):
             print("[INFO] Processing image... (Resizing for Speed)", flush=True)
-            
-            # 1. SCALE DOWN (0.5x size) — matches attendance system scale
-            # 0.25x was too aggressive; angled faces became too small to detect
+
             small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
 
-            # 2. CONVERT & CLEAN
-            # We process the SMALL frame, which is fast
             rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
             rgb_small_frame = np.ascontiguousarray(rgb_small_frame)
 
             try:
-                # 3. DETECT FACES (on Small Frame)
-                # This should now take 2-3 seconds on CPU instead of 25s
                 small_boxes = face_recognition.face_locations(rgb_small_frame, model="cnn")
-                
+
                 if len(small_boxes) == 0:
                     print("[WARNING] No face detected. Please look at the camera.", flush=True)
                 elif len(small_boxes) > 1:
                     print("[WARNING] Multiple faces! Ensure only the student is in frame.", flush=True)
                 else:
-                    # 4. SCALE UP COORDINATES
-                    # Since we shrunk by 0.25, we multiply coordinates by 4 to get back to HD
                     top, right, bottom, left = small_boxes[0]
                     top *= 2
                     right *= 2
                     bottom *= 2
                     left *= 2
-                    
-                    # Store as a list of boxes (just one face)
+
                     hd_boxes = [(top, right, bottom, left)]
 
-                    # 5. ENCODE (On FULL HD Frame)
-                    # We use the original high-quality 'frame' for the actual biometric encoding
-                    # This ensures we don't lose accuracy features!
                     rgb_hd_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     encoding = face_recognition.face_encodings(rgb_hd_frame, hd_boxes)[0]
-                    
+
                     save_encoding_to_db(student_id, encoding)
                     captured_count += 1
                     print(f"[SUCCESS] Capture {captured_count} saved!", flush=True)
-            
+
             except Exception as e:
                 print(f"[ERROR] AI Error: {e}", flush=True)
-                # Fallback logic removed for clarity, but resizing usually fixes the crash too.
 
         elif key == ord('q'):
             print("Closing camera...", flush=True)

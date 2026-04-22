@@ -1,12 +1,9 @@
-/* ===== Session - Professional UI (matches Dashboard) ===== */
-
 .session-main {
   padding: 2rem 1.5rem 3rem;
   min-height: 80vh;
   color: #2d3e1f;
 }
 
-/* ----- Session Header (module title area) ----- */
 .session-header {
   text-align: center;
   margin-bottom: 2rem;
@@ -26,7 +23,6 @@
   margin-top: 0.25rem;
 }
 
-/* ----- Control Panel ----- */
 .control-panel {
   display: flex;
   justify-content: center;
@@ -87,7 +83,6 @@
   background: linear-gradient(135deg, #b71c1c 0%, #c62828 100%);
 }
 
-/* ----- Student List Container ----- */
 .student-list-container {
   max-width: 900px;
   margin: 0 auto;
@@ -114,7 +109,6 @@
   margin: 0;
 }
 
-/* ----- Empty State ----- */
 .empty-state {
   text-align: center;
   padding: 2rem;
@@ -144,7 +138,6 @@
   text-decoration: underline;
 }
 
-/* ----- Student Table ----- */
 .student-table {
   width: 100%;
   border-collapse: collapse;
@@ -182,7 +175,6 @@
   border: 1px solid #a5d6a7;
 }
 
-/* ----- Enrollment Modal ----- */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -317,23 +309,123 @@
 
 .delete-student-btn {
   background: none;
-  border: 1px solid #d32f2f; /* Defines the red color */
-  color: #d32f2f;            /* Makes the text red */
-  border-radius: 20px;       /* Rounds the corners much more (pill shape) */
+  border: 1px solid #d32f2f;
+  color: #d32f2f;
+  border-radius: 20px;
   cursor: pointer;
-  padding: 5px 12px;         /* Adjust padding for text look */
-  font-size: 0.875rem;       /* Standard text size */
-  font-family: inherit;      /* Forces it to use the same font as the rest of the page */
-  font-weight: 600;          /* Slightly bold for emphasis */
+  padding: 5px 12px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  font-weight: 600;
   transition: all 0.2s ease;
 }
 
 .delete-student-btn:hover {
-  background-color: #d32f2f; /* Solid red background on hover */
-  color: white;              /* White text on hover for contrast */
+  background-color: #d32f2f;
+  color: white;
 }
 
-/* --- Duration Buttons --- */
+.enroll-mode-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.enroll-mode-tab {
+    flex: 1;
+    padding: 0.6rem 0.5rem;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-bottom: -2px;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.enroll-mode-tab:hover {
+    color: #2d3e1f;
+}
+
+.enroll-mode-tab.active {
+    color: #2d3e1f;
+    border-bottom-color: #556b2f;
+}
+
+.existing-student-list {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.25rem;
+    background: #fafafa;
+}
+
+.existing-empty {
+    text-align: center;
+    color: #64748b;
+    padding: 1.5rem 0.5rem;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.existing-student-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: #fff;
+    border-radius: 6px;
+    margin-bottom: 0.35rem;
+    border: 1px solid #eef1e9;
+}
+
+.existing-student-row:last-child {
+    margin-bottom: 0;
+}
+
+.existing-student-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.existing-student-name {
+    font-weight: 600;
+    color: #2d3e1f;
+    font-size: 0.9rem;
+}
+
+.existing-student-id {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.existing-add-btn {
+    padding: 0.4rem 1rem;
+    background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.existing-add-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(46, 125, 50, 0.3);
+}
+
+.existing-add-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .duration-options {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -358,6 +450,22 @@
     color: white;
 }
 
+.duration-btn.active {
+    background: #556b2f;
+    color: white;
+    box-shadow: 0 0 0 3px rgba(85, 107, 47, 0.25);
+}
+
+.duration-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.duration-btn:disabled:hover {
+    background: white;
+    color: #556b2f;
+}
+
 .duration-btn.manual {
     border-color: #d35400;
     color: #d35400;
@@ -368,7 +476,12 @@
     color: white;
 }
 
-/* --- Countdown Overlay --- */
+.duration-btn.manual.active {
+    background: #d35400;
+    color: white;
+    box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.25);
+}
+
 .countdown-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;

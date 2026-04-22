@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Removed 'Link' since we deleted signup
-import api from '../api'; // Ensure you have this file in src/api.js
+import { useNavigate } from 'react-router-dom';
+import api from '../api';
 import '../styles/Login.css';
 import logo from '../images/ul-logo.png';
 import campus from '../images/campus_login.jpg';
@@ -10,10 +10,9 @@ function Login() {
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [loginError, setLoginError] = useState('');
-  
+
   const navigate = useNavigate();
 
-  // Basic Email Validation Regex
   const emailRegex = /^[^@]+@[^@]+\.[^@]+$/;
 
   const handleEmailBlur = () => {
@@ -28,7 +27,7 @@ function Login() {
     e.preventDefault();
     try {
       const response = await api.post('/auth/login', { email, password });
-      
+
       console.log("Login Response:", response.data);
 
       if (response.data.success) {
@@ -41,7 +40,7 @@ function Login() {
 
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(userData));
-        
+
         if (response.data.role === 'admin') {
           navigate('/admin');
         } else {
@@ -49,7 +48,6 @@ function Login() {
         }
       }
     } catch (err) {
-      // ✅ FIX: Changed 'setError' to 'setLoginError'
       setLoginError('Invalid email or password');
     }
   };
@@ -60,13 +58,12 @@ function Login() {
         <img src={logo} alt="UL Logo" className="logo" />
         <img src={campus} alt="Campus" className="campus-img" />
       </div>
-      
+
       <div className="right-panel">
         <h1 className="main-title">LOGIN</h1>
-        
+
         <form onSubmit={handleLogin}>
-          
-          {/* Global Error Message */}
+
           {loginError && (
             <div style={{ color: '#ff6b6b', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '5px', textAlign: 'center' }}>
               {loginError}
@@ -85,9 +82,9 @@ function Login() {
           {emailError && <span style={{ color: '#ff8888', fontSize: '0.9em' }}>{emailError}</span>}
 
           <label>Password</label>
-          <input 
-            type="password" 
-            placeholder="enter password here" 
+          <input
+            type="password"
+            placeholder="enter password here"
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
@@ -95,8 +92,7 @@ function Login() {
 
           <button type="submit" className="main-btn">Log In</button>
         </form>
-        
-        {/* Removed the Signup Link here */}
+
       </div>
     </div>
   );

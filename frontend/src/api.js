@@ -4,7 +4,6 @@ const api = axios.create({
   baseURL: 'http://localhost:5000/api',
 });
 
-// Attach JWT token to every request automatically
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -13,11 +12,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// If the server returns 401/403, clear stale auth and redirect to login
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    const status = error.response?.status;
+    const url = error.config?.url || '';
+    const isPasswordChange = url.includes('/auth/profile/password');
+    if ((status === 401 || status === 403) && !isPasswordChange) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

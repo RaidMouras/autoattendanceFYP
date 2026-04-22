@@ -1,4 +1,3 @@
-// backend/db.js
 require('dotenv').config();
 const mysql = require('mysql2');
 
@@ -12,5 +11,4 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Using .promise() allows us to use async/await in our routes
 module.exports = pool.promise();

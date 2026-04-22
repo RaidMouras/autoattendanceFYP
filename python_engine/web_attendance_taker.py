@@ -20,18 +20,13 @@ import multiprocessing as mp
 from datetime import datetime, timedelta
 from db_connection import create_db_connection
 
-# --- CONFIGURATION ---
-LOG_INTERVAL  = 30    # Seconds between re-logging the same student
-TOLERANCE     = 0.55  # Face match threshold (lower = stricter)
-SCALE_FACTOR  = 0.5   # Resize factor for CNN detection
-CAMERA_START  = 0     # Start from index 0 (laptop webcam)
+LOG_INTERVAL  = 30
+TOLERANCE     = 0.55
+SCALE_FACTOR  = 0.5
+CAMERA_START  = 0
 MAX_CAMERAS   = 6
-DISPLAY_WIDTH = 1280  # Display window width (height auto-scaled)
+DISPLAY_WIDTH = 1280
 
-
-# ---------------------------------------------------------------------------
-# DATABASE HELPERS
-# ---------------------------------------------------------------------------
 
 def create_session_entry(module_code, duration_minutes):
     conn = create_db_connection()
@@ -95,10 +90,6 @@ def load_known_faces():
     return known_encodings, known_ids
 
 
-# ---------------------------------------------------------------------------
-# ASYNC LOGGING THREAD — DB writes never block the display loop
-# ---------------------------------------------------------------------------
-
 class AttendanceLogger:
     def __init__(self):
         self._q      = queue.Queue()
@@ -131,10 +122,6 @@ class AttendanceLogger:
             self._q.task_done()
 
 
-# ---------------------------------------------------------------------------
-# CAMERA STREAM — dedicated thread so the main loop never blocks on I/O
-# ---------------------------------------------------------------------------
-
 class CameraStream:
     def __init__(self, src):
         self.cap = cv2.VideoCapture(src)
@@ -162,15 +149,9 @@ class CameraStream:
         self.cap.release()
 
 
-# ---------------------------------------------------------------------------
-# AI PROCESS — separate process = completely separate GIL
-# Receives pre-scaled (small) frame → no heavy serialization.
-# Puts back only lightweight result: list of (box coords + label + color).
-# ---------------------------------------------------------------------------
-
 def ai_process_fn(known_encodings, known_ids, frame_queue, result_queue, stop_event):
     """Runs in a separate process. Frames arrive already scaled."""
-    multiplier = 1.0 / SCALE_FACTOR   # scale detected coords back to full-res
+    multiplier = 1.0 / SCALE_FACTOR
 
     while not stop_event.is_set():
         try:
@@ -197,16 +178,11 @@ def ai_process_fn(known_encodings, known_ids, frame_queue, result_queue, stop_ev
 
             boxes.append((left, top, right, bottom, name, color))
 
-        # Replace stale result if the main loop hasn't consumed the last one yet
         if not result_queue.empty():
             try: result_queue.get_nowait()
             except: pass
         result_queue.put((boxes, recognized_ids))
 
-
-# ---------------------------------------------------------------------------
-# CAMERA DETECTION
-# ---------------------------------------------------------------------------
 
 def detect_cameras():
     available = []
@@ -224,10 +200,6 @@ def detect_cameras():
         print(f"[INFO] Detected {len(available)} camera(s): indices {available}", flush=True)
     return available
 
-
-# ---------------------------------------------------------------------------
-# MAIN LOOP
-# ---------------------------------------------------------------------------
 
 def run_attendance_system(module_code, duration_minutes, selected_cameras=None):
     session_id = create_session_entry(module_code, duration_minutes)
@@ -249,7 +221,6 @@ def run_attendance_system(module_code, duration_minutes, selected_cameras=None):
     logger     = AttendanceLogger()
     cameras    = [CameraStream(idx) for idx in camera_indices]
 
-    # One queue pair + AI process per camera
     frame_queues  = [mp.Queue(maxsize=1) for _ in camera_indices]
     result_queues = [mp.Queue(maxsize=1) for _ in camera_indices]
     stop_event    = mp.Event()
@@ -270,7 +241,7 @@ def run_attendance_system(module_code, duration_minutes, selected_cameras=None):
     fps_times    = [time.time()] * len(cameras)
     fps_displays = [0]  * len(cameras)
 
-    cooldown   = {}   # student_id → last-logged timestamp
+    cooldown   = {}
     start_time = time.time()
 
     try:
@@ -286,11 +257,9 @@ def run_attendance_system(module_code, duration_minutes, selected_cameras=None):
                 if not ret or frame is None:
                     continue
 
-                # Scale frame down BEFORE queuing — sends ~1.5 MB, not ~25 MB
                 small     = cv2.resize(frame, (0, 0), fx=SCALE_FACTOR, fy=SCALE_FACTOR)
                 small_rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
 
-                # Drop stale queued frame, push latest
                 if not fq.empty():
                     try: fq.get_nowait()
                     except: pass
@@ -299,7 +268,6 @@ def run_attendance_system(module_code, duration_minutes, selected_cameras=None):
                 except:
                     pass
 
-                # Pull latest result (non-blocking)
                 try:
                     boxes, recognized_ids = rq.get_nowait()
                     last_boxes[i] = boxes
@@ -312,20 +280,17 @@ def run_attendance_system(module_code, duration_minutes, selected_cameras=None):
                 except:
                     pass
 
-                # FPS counter
                 fps_counters[i] += 1
                 if time.time() - fps_times[i] >= 1.0:
                     fps_displays[i] = fps_counters[i]
                     fps_counters[i] = 0
                     fps_times[i]    = time.time()
 
-                # Draw bounding boxes (full-res coords from AI process)
                 for (left, top, right, bottom, name, color) in last_boxes[i]:
                     cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
                     cv2.putText(frame, name, (left, top - 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.65, color, 2)
 
-                # HUD
                 fh = frame.shape[0]
                 if duration_minutes > 0:
                     remaining  = max(0, duration_minutes * 60 - elapsed)
@@ -343,7 +308,6 @@ def run_attendance_system(module_code, duration_minutes, selected_cameras=None):
                 cv2.putText(frame, "Press 'Q' to stop session", (20, fh - 18),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 180, 180), 1)
 
-                # Resize for display only
                 disp_h     = int(frame.shape[0] * DISPLAY_WIDTH / frame.shape[1])
                 disp_frame = cv2.resize(frame, (DISPLAY_WIDTH, disp_h))
                 cv2.imshow(f'Attendance - {module_code} - Cam {camera_indices[i]}', disp_frame)
@@ -370,7 +334,6 @@ if __name__ == "__main__":
     mp.freeze_support()
     if len(sys.argv) < 3:
         sys.exit(1)
-    # Optional 3rd arg: comma-separated camera indices e.g. "0,1,2" or "all"
     selected = None
     if len(sys.argv) >= 4 and sys.argv[3] != 'all':
         selected = [int(x) for x in sys.argv[3].split(',')]
